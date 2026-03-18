@@ -2,24 +2,44 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>Minigolf-Abt.1 – Browser-Version</title>
+<title>Minigolf-App – Entwicklerkontrolle</title>
 <style>
 body { font-family: sans-serif; display:flex; flex-direction:column; align-items:center; margin:20px; }
 svg { border:1px solid #444; background:#f0f0f0; margin-top:10px; }
-.position { cursor:pointer; font-size:10px; text-anchor:middle; dominant-baseline:middle; }
-.note { font-size:9px; fill:blue; }
-label { margin-top:10px; font-weight:bold; }
+.note { font-size:8px; fill:blue; text-anchor:middle; dominant-baseline:middle; }
 button { margin:5px; }
+.position-btn { cursor:pointer; fill:#D2B48C; stroke:#333; stroke-width:1; } /* hellbraun */
+.menu {
+  position:absolute;
+  background:white;
+  border:1px solid #333;
+  padding:5px;
+  display:grid;
+  grid-template-columns: repeat(4, auto);
+  gap:5px;
+  z-index:1000;
+}
+.toggle-visibility {
+  grid-column: span 4;
+  background:#fff;
+  border:1px solid #333;
+  cursor:pointer;
+}
+#devBanner {
+  margin:10px; font-weight:bold; color:white; background:#444; padding:5px 10px; border-radius:5px; display:none;
+}
 </style>
 </head>
 <body>
 
-<h2>Minigolf-Abt.1 – Bahn wechseln</h2>
+<h2>Minigolf-App – Entwicklerkontrolle</h2>
+
+<div id="devBanner">🛠 Entwicklermodus aktiv</div>
 
 <div>
-  <button id="prevBowl">‹ Bahn vorher</button>
+  <button id="prevBowl">‹</button>
   <span id="bowlLabel">Bahn 1 / 18</span>
-  <button id="nextBowl">Bahn nächste ›</button>
+  <button id="nextBowl">›</button>
 </div>
 
 <div>
@@ -28,150 +48,213 @@ button { margin:5px; }
 
 <label>
   <input type="checkbox" id="toggleView" checked>
-  Notizen & Linien anzeigen
+  Linien anzeigen (global)
 </label>
 
 <svg id="endcircle" width="400" height="400" viewBox="0 0 200 200">
-  <circle cx="100" cy="100" r="80" fill="#c0c0c0" stroke="#555" stroke-width="2"/>
+  <circle cx="100" cy="100" r="80" fill="#c0c0c0"/>
   <circle cx="100" cy="100" r="10" fill="black"/>
   <g id="lines"></g>
   <g id="positions"></g>
 </svg>
 
 <script>
-const center = {x:100, y:100};
+const isDev = window.location.search.includes("dev=true"); // Entwickler-Modus aktiv
+if(isDev) document.getElementById("devBanner").style.display="block";
+
+const center = {x:100,y:100};
 const radius = 80;
 const holeRadius = 10;
 const positionsCount = 12;
 const totalBowls = 18;
 
 const selectionOptions = {
-  "0": "Gerade ins Loch",
-  "L1": "leicht links im Loch",
-  "L2": "links im Loch",
-  "L3": "linker Lochrand",
-  "R1": "leicht rechts im Loch",
-  "R2": "rechts im Loch",
-  "R3": "rechter Lochrand"
+  "0":"Gerade ins Loch",
+  "L1":"leicht links im Loch",
+  "L2":"links im Loch",
+  "L3":"linker Lochrand",
+  "R1":"leicht rechts im Loch",
+  "R2":"rechts im Loch",
+  "R3":"rechter Lochrand"
 };
 
-const bowlsData = [];
-for(let i=0;i<totalBowls;i++) bowlsData.push({});
-
+const bowlsData = Array.from({length:totalBowls},()=>({}));
 let currentBowl = 0;
 
 const linesGroup = document.getElementById("lines");
 const positionsGroup = document.getElementById("positions");
-const toggleView = document.getElementById("toggleView");
 const bowlLabel = document.getElementById("bowlLabel");
+const toggleView = document.getElementById("toggleView");
 
-function getAngleRad(i){ return (i * 30 - 90) * Math.PI / 180; }
+function getAngleRad(i){ return (i*30-90)*Math.PI/180; }
 
 function loadData(){
   const saved = localStorage.getItem("minigolfSave");
-  if(!saved) return;
-  const parsed = JSON.parse(saved);
-  for(let i=0;i<totalBowls;i++){ bowlsData[i] = parsed[i] || {}; }
+  if(saved){
+    const parsed = JSON.parse(saved);
+    for(let i=0;i<totalBowls;i++){
+      bowlsData[i]=parsed[i]||{};
+    }
+  }
 }
 
-function calculateTarget(selection, angleRad){
-  const startX = center.x + radius*Math.cos(angleRad);
-  const startY = center.y + radius*Math.sin(angleRad);
-  const dirX = center.x - startX;
-  const dirY = center.y - startY;
-  const length = Math.sqrt(dirX*dirX + dirY*dirY);
-  const normX = dirX/length;
-  const normY = dirY/length;
-  const step = holeRadius/3;
+function calculateTarget(sel,angle){
+  const startX=center.x+radius*Math.cos(angle);
+  const startY=center.y+radius*Math.sin(angle);
+  const dx=center.x-startX;
+  const dy=center.y-startY;
+  const len=Math.sqrt(dx*dx+dy*dy);
+  const nx=dx/len, ny=dy/len;
+  const step=holeRadius/3;
   let offset=0;
-  switch(selection){
-    case "0": offset=0; break;
-    case "L1": offset=-step; break;
-    case "L2": offset=-2*step; break;
-    case "L3": offset=-3*step; break;
-    case "R1": offset=step; break;
-    case "R2": offset=2*step; break;
-    case "R3": offset=3*step; break;
+  if(sel==="L1") offset=-step;
+  if(sel==="L2") offset=-2*step;
+  if(sel==="L3") offset=-3*step;
+  if(sel==="R1") offset=step;
+  if(sel==="R2") offset=2*step;
+  if(sel==="R3") offset=3*step;
+  return { x:center.x + (-ny)*offset, y:center.y + (nx)*offset };
+}
+
+function showMenu(x,y,current,onSelect,visible,onToggleVisibility,note,onEditNote){
+  const menu=document.createElement("div");
+  menu.className="menu";
+  menu.style.left=x+"px";
+  menu.style.top=y+"px";
+
+  Object.keys(selectionOptions).forEach(key=>{
+    const btn=document.createElement("button");
+    btn.textContent=key;
+    btn.title = selectionOptions[key];
+    if(key===current) btn.style.background="#ddd";
+    btn.onclick=()=>{onSelect(key); menu.remove();};
+    menu.appendChild(btn);
+  });
+
+  const toggleBtn = document.createElement("button");
+  toggleBtn.className="toggle-visibility";
+  toggleBtn.textContent = visible ? "👁 Sichtbar" : "🚫 Unsichtbar";
+  toggleBtn.onclick = ()=>{
+    onToggleVisibility(!visible);
+    toggleBtn.textContent = !visible ? "👁 Sichtbar" : "🚫 Unsichtbar";
+  };
+  menu.appendChild(toggleBtn);
+
+  if(isDev){
+    const noteInput = document.createElement("input");
+    noteInput.type="text";
+    noteInput.value = note || "";
+    noteInput.placeholder="Notiz eingeben";
+    noteInput.style.gridColumn = "span 4";
+    noteInput.onchange = ()=>{ onEditNote(noteInput.value); };
+    menu.appendChild(noteInput);
   }
-  const perpX = -normY;
-  const perpY = normX;
-  return { x: center.x + offset*perpX, y: center.y + offset*perpY };
+
+  const del=document.createElement("button");
+  del.textContent="❌";
+  del.onclick=()=>{onSelect(null); menu.remove();};
+  menu.appendChild(del);
+
+  document.body.appendChild(menu);
+  setTimeout(()=>{
+    document.addEventListener("click", function handler(e){
+      if(!menu.contains(e.target)){
+        menu.remove();
+        document.removeEventListener("click",handler);
+      }
+    });
+  },10);
 }
 
 function drawPositions(){
-  positionsGroup.innerHTML = '';
+  positionsGroup.innerHTML="";
   for(let i=0;i<positionsCount;i++){
-    const angle = getAngleRad(i);
-    const x = center.x + radius*Math.cos(angle);
-    const y = center.y + radius*Math.sin(angle);
-    const pos = document.createElementNS("http://www.w3.org/2000/svg","text");
-    pos.setAttribute("x", x);
-    pos.setAttribute("y", y);
-    pos.setAttribute("class","position");
-    pos.textContent = (i===0?"12":i);
-    pos.addEventListener("click", ()=>{
-      const data = bowlsData[currentBowl];
-      const current = data[i];
-      let selection = prompt(
-        (current ? `Aktuell: ${selectionOptions[current]}\n` : "") +
-        "Wähle:\n" + Object.keys(selectionOptions).join(", ")
+    const angle=getAngleRad(i);
+    const x=center.x+radius*Math.cos(angle);
+    const y=center.y+radius*Math.sin(angle);
+
+    const btn=document.createElementNS("http://www.w3.org/2000/svg","circle");
+    btn.setAttribute("cx",x);
+    btn.setAttribute("cy",y);
+    btn.setAttribute("r",8);
+    btn.setAttribute("class","position-btn");
+
+    btn.addEventListener("click",(e)=>{
+      const data=bowlsData[currentBowl];
+      if(!data[i]) data[i]={sel:null, visible:true, note:""};
+      const current=data[i].sel;
+      const visible=data[i].visible;
+      const note=data[i].note;
+
+      showMenu(e.pageX,e.pageY, current,
+        (val)=>{ data[i].sel=val; updateBowl(); },
+        visible,
+        (newVis)=>{ data[i].visible=newVis; updateBowl(); },
+        note,
+        (newNote)=>{ data[i].note=newNote; updateBowl(); }
       );
-      if(!selection){ delete data[i]; }
-      else if(selectionOptions[selection]){ data[i] = selection; }
-      else { alert("Ungültige Auswahl!"); return; }
-      updateBowl();
     });
-    positionsGroup.appendChild(pos);
+    positionsGroup.appendChild(btn);
+
+    const txt=document.createElementNS("http://www.w3.org/2000/svg","text");
+    txt.setAttribute("x",x);
+    txt.setAttribute("y",y+1);
+    txt.setAttribute("text-anchor","middle");
+    txt.setAttribute("dominant-baseline","middle");
+    txt.setAttribute("font-size","7px");
+    txt.textContent=(i===0?"12":i);
+    positionsGroup.appendChild(txt);
   }
 }
 
 function updateBowl(){
-  linesGroup.innerHTML = '';
-  positionsGroup.querySelectorAll('.note').forEach(n=>n.remove());
-  bowlLabel.textContent = `Bahn ${currentBowl+1} / ${totalBowls}`;
-  const data = bowlsData[currentBowl];
+  linesGroup.innerHTML="";
+  positionsGroup.querySelectorAll(".note").forEach(n=>n.remove());
+  bowlLabel.textContent=`Bahn ${currentBowl+1} / ${totalBowls}`;
+  const data=bowlsData[currentBowl];
+
   for(let i in data){
-    const sel = data[i];
-    const angleRad = getAngleRad(i);
-    const startX = center.x + radius*Math.cos(angleRad);
-    const startY = center.y + radius*Math.sin(angleRad);
-    const target = calculateTarget(sel, angleRad);
-    const line = document.createElementNS("http://www.w3.org/2000/svg","line");
-    line.setAttribute("x1", startX);
-    line.setAttribute("y1", startY);
-    line.setAttribute("x2", target.x);
-    line.setAttribute("y2", target.y);
-    line.setAttribute("stroke","rgba(255,0,0,0.6)");
-    line.setAttribute("stroke-width","1");
-    line.style.display = toggleView.checked?"block":"none";
+    const obj = data[i];
+    const sel = obj.sel;
+    const visible = obj.visible;
+    const note = obj.note;
+
+    if(!sel) continue;
+
+    const angle=getAngleRad(i);
+    const startX=center.x+radius*Math.cos(angle);
+    const startY=center.y+radius*Math.sin(angle);
+    const target=calculateTarget(sel,angle);
+
+    const line=document.createElementNS("http://www.w3.org/2000/svg","line");
+    line.setAttribute("x1",startX);
+    line.setAttribute("y1",startY);
+    line.setAttribute("x2",target.x);
+    line.setAttribute("y2",target.y);
+    line.setAttribute("stroke","rgba(255,0,0,0.5)");
+    line.style.display=(visible && toggleView.checked)?"block":"none";
     linesGroup.appendChild(line);
-    const noteDist = radius*0.6;
-    const noteX = center.x + noteDist*Math.cos(angleRad);
-    const noteY = center.y + noteDist*Math.sin(angleRad);
-    const note = document.createElementNS("http://www.w3.org/2000/svg","text");
-    note.setAttribute("x", noteX);
-    note.setAttribute("y", noteY);
-    note.setAttribute("class","note");
-    note.textContent = selectionOptions[sel];
-    note.style.display = toggleView.checked?"block":"none";
-    positionsGroup.appendChild(note);
+
+    const noteText=document.createElementNS("http://www.w3.org/2000/svg","text");
+    noteText.setAttribute("x",center.x+radius*0.6*Math.cos(angle));
+    noteText.setAttribute("y",center.y+radius*0.6*Math.sin(angle));
+    noteText.setAttribute("class","note");
+    noteText.setAttribute("font-size","7px");
+    noteText.setAttribute("text-anchor","middle");
+    noteText.setAttribute("dominant-baseline","middle");
+    noteText.textContent = note || selectionOptions[sel];
+    noteText.style.display=visible?"block":"none";
+    positionsGroup.appendChild(noteText);
   }
-  localStorage.setItem("minigolfSave", JSON.stringify(bowlsData));
+
+  localStorage.setItem("minigolfSave",JSON.stringify(bowlsData));
 }
 
-document.getElementById("prevBowl").addEventListener("click", ()=>{
-  if(currentBowl>0) currentBowl--; updateBowl();
-});
-document.getElementById("nextBowl").addEventListener("click", ()=>{
-  if(currentBowl<totalBowls-1) currentBowl++; updateBowl();
-});
-toggleView.addEventListener("change", updateBowl);
-document.getElementById("saveBtn").addEventListener("click", ()=>{
-  localStorage.setItem("minigolfSave", JSON.stringify(bowlsData));
-  alert("Gespeichert!");
-});
+document.getElementById("prevBowl").onclick=()=>{if(currentBowl>0) currentBowl--; updateBowl();};
+document.getElementById("nextBowl").onclick=()=>{if(currentBowl<totalBowls-1) currentBowl++; updateBowl();};
+document.getElementById("saveBtn").onclick=()=>{localStorage.setItem("minigolfSave",JSON.stringify(bowlsData)); alert("Gespeichert!");};
+toggleView.onchange=updateBowl;
 
-// Start
 loadData();
 drawPositions();
 updateBowl();
