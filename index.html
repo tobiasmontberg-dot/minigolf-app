@@ -8,7 +8,7 @@ body { font-family: sans-serif; display:flex; flex-direction:column; align-items
 svg { border:1px solid #444; background:#f0f0f0; margin-top:10px; }
 .note { font-size:8px; fill:blue; text-anchor:middle; dominant-baseline:middle; }
 button { margin:5px; }
-.position-btn { cursor:pointer; fill:#D2B48C; stroke:#333; stroke-width:1; } /* hellbraun */
+.position-btn { cursor:pointer; fill:#D2B48C; stroke:#333; stroke-width:1; }
 .menu {
   position:absolute;
   background:white;
@@ -28,12 +28,15 @@ button { margin:5px; }
 #devBanner {
   margin:10px; font-weight:bold; color:white; background:#444; padding:5px 10px; border-radius:5px; display:none;
 }
+input[readonly] {
+  background:#eee;
+  border:1px solid #ccc;
+}
 </style>
 </head>
 <body>
 
 <h2>Minigolf-App – Entwicklerkontrolle</h2>
-
 <div id="devBanner">🛠 Entwicklermodus aktiv</div>
 
 <div>
@@ -59,7 +62,7 @@ button { margin:5px; }
 </svg>
 
 <script>
-const isDev = window.location.search.includes("dev=true"); // Entwickler-Modus aktiv
+const isDev = window.location.search.includes("dev=true");
 if(isDev) document.getElementById("devBanner").style.display="block";
 
 const center = {x:100,y:100};
@@ -122,38 +125,33 @@ function showMenu(x,y,current,onSelect,visible,onToggleVisibility,note,onEditNot
   menu.style.left=x+"px";
   menu.style.top=y+"px";
 
-  Object.keys(selectionOptions).forEach(key=>{
-    const btn=document.createElement("button");
-    btn.textContent=key;
-    btn.title = selectionOptions[key];
-    if(key===current) btn.style.background="#ddd";
-    btn.onclick=()=>{onSelect(key); menu.remove();};
-    menu.appendChild(btn);
-  });
+  // Wertefeld
+  const valueInput = document.createElement("input");
+  valueInput.value = current || "";
+  valueInput.readOnly = !isDev; // normale Nutzer können nicht ändern
+  valueInput.style.gridColumn = "span 4";
+  valueInput.onchange = ()=>{ if(isDev){onSelect(valueInput.value); updateBowl();} };
+  menu.appendChild(valueInput);
 
+  // Sichtbarkeit
   const toggleBtn = document.createElement("button");
   toggleBtn.className="toggle-visibility";
   toggleBtn.textContent = visible ? "👁 Sichtbar" : "🚫 Unsichtbar";
   toggleBtn.onclick = ()=>{
     onToggleVisibility(!visible);
     toggleBtn.textContent = !visible ? "👁 Sichtbar" : "🚫 Unsichtbar";
+    updateBowl();
   };
   menu.appendChild(toggleBtn);
 
-  if(isDev){
-    const noteInput = document.createElement("input");
-    noteInput.type="text";
-    noteInput.value = note || "";
-    noteInput.placeholder="Notiz eingeben";
-    noteInput.style.gridColumn = "span 4";
-    noteInput.onchange = ()=>{ onEditNote(noteInput.value); };
-    menu.appendChild(noteInput);
-  }
-
-  const del=document.createElement("button");
-  del.textContent="❌";
-  del.onclick=()=>{onSelect(null); menu.remove();};
-  menu.appendChild(del);
+  // Notizfeld
+  const noteInput = document.createElement("input");
+  noteInput.value = note || "";
+  noteInput.placeholder="Notiz";
+  noteInput.style.gridColumn = "span 4";
+  noteInput.readOnly = !isDev; // nur Entwickler editierbar
+  noteInput.onchange = ()=>{ if(isDev){ onEditNote(noteInput.value); updateBowl();} };
+  menu.appendChild(noteInput);
 
   document.body.appendChild(menu);
   setTimeout(()=>{
@@ -187,11 +185,11 @@ function drawPositions(){
       const note=data[i].note;
 
       showMenu(e.pageX,e.pageY, current,
-        (val)=>{ data[i].sel=val; updateBowl(); },
+        (val)=>{ data[i].sel=val; },
         visible,
-        (newVis)=>{ data[i].visible=newVis; updateBowl(); },
+        (newVis)=>{ data[i].visible=newVis; },
         note,
-        (newNote)=>{ data[i].note=newNote; updateBowl(); }
+        (newNote)=>{ data[i].note=newNote; }
       );
     });
     positionsGroup.appendChild(btn);
