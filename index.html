@@ -44,6 +44,7 @@ button { margin:5px; cursor:pointer; }
   <circle cx="100" cy="100" r="10" fill="black"/>
   <g id="lines"></g>
   <g id="positions"></g>
+  <g id="bowlNumber"></g>
 
   <defs>
     <radialGradient id="btnGradient" cx="50%" cy="50%" r="50%">
@@ -104,6 +105,7 @@ let currentBowl=0;
 const linesGroup=document.getElementById("lines");
 const positionsGroup=document.getElementById("positions");
 const bowlLabel=document.getElementById("bowlLabel");
+const bowlNumberGroup=document.getElementById("bowlNumber");
 const toggleView=document.getElementById("toggleView");
 
 let userVisibility = JSON.parse(localStorage.getItem("minigolfVisibility")) || {};
@@ -306,10 +308,43 @@ function drawBubble(x, y, text) {
   return bubbleGroup;
 }
 
+// ================= BAHNNUMMER =================
+function updateBowlNumber(){
+  bowlNumberGroup.innerHTML = "";
+  const numberGroup = document.createElementNS("http://www.w3.org/2000/svg","g");
+  const x = 180;
+  const y = 20;
+
+  const circle = document.createElementNS("http://www.w3.org/2000/svg","circle");
+  circle.setAttribute("cx", x);
+  circle.setAttribute("cy", y);
+  circle.setAttribute("r", 12); 
+  circle.setAttribute("fill", "#C2A078"); // leicht dunkler als Button-Farbe
+  circle.setAttribute("stroke", "#222");
+  circle.setAttribute("stroke-width", 1);
+  numberGroup.appendChild(circle);
+
+  const text = document.createElementNS("http://www.w3.org/2000/svg","text");
+  text.setAttribute("x", x);
+  text.setAttribute("y", y+1);
+  text.setAttribute("text-anchor","middle");
+  text.setAttribute("dominant-baseline","middle");
+  text.setAttribute("font-size","11");
+  text.setAttribute("fill","#FFF");
+  text.style.fontWeight = "bold";
+  text.textContent = currentBowl+1;
+  numberGroup.appendChild(text);
+
+  bowlNumberGroup.appendChild(numberGroup);
+}
+
+// ================= UPDATE BOWL =================
 function updateBowl(){
   linesGroup.innerHTML="";
   positionsGroup.querySelectorAll(".bubble").forEach(n=>n.remove());
   bowlLabel.textContent=`Bahn ${currentBowl+1} / ${totalBowls}`;
+  updateBowlNumber();
+
   const data=bowlsData[currentBowl];
 
   for(let i in data){
@@ -340,13 +375,10 @@ function updateBowl(){
 // ================= BAHNWECHSEL-ANIMATION =================
 function animateBowlLabel() {
   const label = document.getElementById("bowlLabel");
-  
-  // Start schwarz
   label.style.color = "#000000"; 
   label.style.transform = "scale(0.5)";
   label.style.display = "inline-block";
 
-  // Animation
   const anim = label.animate([
     { transform: "scale(0.5)", color: "#000000", opacity: 0 },
     { transform: "scale(1.2)", color: "#FFA500", opacity: 1 },
