@@ -10,12 +10,13 @@
 
 <style>
 body { font-family: sans-serif; display:flex; flex-direction:column; align-items:center; margin:20px; }
-svg { border:1px solid #444; background:#f0f0f0; margin-top:10px; }
+svg { border:1px solid #444; background:#f0f0f0; margin-top:10px; transition: transform 0.4s; }
 button { margin:5px; cursor:pointer; }
 .position-btn { stroke:#333; stroke-width:1; cursor:pointer; }
 .menu { position:absolute; background:white; border:1px solid #333; padding:6px; display:grid; grid-template-columns: repeat(4, auto); gap:5px; z-index:1000; }
 .toggle-visibility { grid-column: span 4; }
 #devBanner { margin:10px; font-weight:bold; color:white; background:#444; padding:5px 10px; border-radius:5px; display:none; }
+#bowlLabel { display:inline-block; transition: color 0.2s; }
 </style>
 </head>
 <body>
@@ -39,19 +40,11 @@ button { margin:5px; cursor:pointer; }
 </label>
 
 <svg width="400" height="400" viewBox="0 0 200 200">
-  <!-- Große graue Bahn mit dünner schwarzer Umrandung -->
   <circle cx="100" cy="100" r="80" fill="#c0c0c0" stroke="black" stroke-width="1"/>
-
-  <!-- Loch in der Mitte -->
   <circle cx="100" cy="100" r="10" fill="black"/>
-
-  <!-- Linien der Positionen -->
   <g id="lines"></g>
-
-  <!-- Positionen und Buttons -->
   <g id="positions"></g>
 
-  <!-- SVG-Defs: Gradient + Schatten -->
   <defs>
     <radialGradient id="btnGradient" cx="50%" cy="50%" r="50%">
       <stop offset="0%" stop-color="#FFFACD"/>
@@ -195,7 +188,6 @@ function showMenu(x,y,current,onSelect,posIndex,note,onEditNote){
 // ================= POSITIONSZEICHNUNG =================
 function drawPositions(){
   positionsGroup.innerHTML="";
-
   for(let i=0;i<positionsCount;i++){
     const angle = getAngleRad(i);
     const x = center.x + radius * Math.cos(angle);
@@ -209,14 +201,13 @@ function drawPositions(){
     hitArea.style.cursor = "pointer";
     positionsGroup.appendChild(hitArea);
 
-    // Sichtbarer Button mit dünnem Rand
     const btn = document.createElementNS("http://www.w3.org/2000/svg","circle");
     btn.setAttribute("cx", x);
     btn.setAttribute("cy", y);
     btn.setAttribute("r", 10);
     btn.setAttribute("fill", "url(#btnGradient)");
     btn.setAttribute("stroke", "#222");
-    btn.setAttribute("stroke-width", 1); // Dünner Rand
+    btn.setAttribute("stroke-width", 1);
     btn.setAttribute("filter", "url(#btnShadow)");
     btn.style.cursor = "pointer";
 
@@ -248,7 +239,7 @@ function drawPositions(){
   }
 }
 
-// ================= INTELLIGENTE SPRECHBLASE =================
+// ================= UPDATE BOWL =================
 function drawBubble(x, y, text) {
   const bubbleGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
   bubbleGroup.setAttribute("transform", `scale(0)`); 
@@ -315,7 +306,6 @@ function drawBubble(x, y, text) {
   return bubbleGroup;
 }
 
-// ================= UPDATE BOWL =================
 function updateBowl(){
   linesGroup.innerHTML="";
   positionsGroup.querySelectorAll(".bubble").forEach(n=>n.remove());
@@ -347,9 +337,56 @@ function updateBowl(){
   localStorage.setItem("minigolfSave",JSON.stringify(bowlsData));
 }
 
+// ================= BAHNWECHSEL-ANIMATION =================
+function animateBowlLabel() {
+  const label = document.getElementById("bowlLabel");
+  
+  // Start schwarz
+  label.style.color = "#000000"; 
+  label.style.transform = "scale(0.5)";
+  label.style.display = "inline-block";
+
+  // Animation
+  const anim = label.animate([
+    { transform: "scale(0.5)", color: "#000000", opacity: 0 },
+    { transform: "scale(1.2)", color: "#FFA500", opacity: 1 },
+    { transform: "scale(1)", color: "#000000", opacity: 1 }
+  ], { duration: 400, easing: "ease-out", fill: "forwards" });
+
+  anim.onfinish = () => {
+    label.style.color = "#000000";
+    label.style.transform = "scale(1)";
+  };
+}
+
+function animateBowlSVG() {
+  const svg = document.querySelector("svg");
+  svg.style.transform = "translateX(-50px)";
+  svg.style.opacity = "0.7";
+
+  svg.animate([
+    { transform: "translateX(-50px)", opacity: 0.7 },
+    { transform: "translateX(0px)", opacity: 1 }
+  ], { duration: 400, easing: "ease-out", fill: "forwards" });
+}
+
 // ================= BUTTONS =================
-document.getElementById("prevBowl").onclick=()=>{if(currentBowl>0) currentBowl--;updateBowl();};
-document.getElementById("nextBowl").onclick=()=>{if(currentBowl<totalBowls-1) currentBowl++;updateBowl();};
+document.getElementById("prevBowl").onclick = () => {
+  if(currentBowl > 0){
+    currentBowl--;
+    animateBowlLabel();
+    animateBowlSVG();
+    updateBowl();
+  }
+};
+document.getElementById("nextBowl").onclick = () => {
+  if(currentBowl < totalBowls-1){
+    currentBowl++;
+    animateBowlLabel();
+    animateBowlSVG();
+    updateBowl();
+  }
+};
 document.getElementById("saveBtn").onclick=saveData;
 toggleView.onchange=updateBowl;
 
