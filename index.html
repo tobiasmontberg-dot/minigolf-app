@@ -104,6 +104,21 @@ const positionsGroup=document.getElementById("positions");
 const bowlLabel=document.getElementById("bowlLabel");
 const toggleView=document.getElementById("toggleView");
 
+/* ================= LOKALE SICHTBARKEIT ================= */
+let userVisibility = JSON.parse(localStorage.getItem("minigolfVisibility")) || {};
+
+function isVisible(bowlIndex, posIndex){
+  return userVisibility[bowlIndex]?.[posIndex] ?? false; // default unsichtbar
+}
+
+function toggleVisibility(bowlIndex, posIndex){
+  if(!userVisibility[bowlIndex]) userVisibility[bowlIndex]={};
+  userVisibility[bowlIndex][posIndex] = !isVisible(bowlIndex,posIndex);
+  localStorage.setItem("minigolfVisibility", JSON.stringify(userVisibility));
+  updateBowl();
+}
+
+/* ================= FUNKTIONEN ================= */
 function getAngleRad(i){return(i*30-90)*Math.PI/180;}
 
 /* ================= LOAD FROM FIREBASE ================= */
@@ -154,7 +169,7 @@ function calculateTarget(sel,angle){
 }
 
 /* ================= MENU ================= */
-function showMenu(x,y,current,onSelect,visible,onToggleVisibility,note,onEditNote){
+function showMenu(x,y,current,onSelect,posIndex,note,onEditNote){
   const menu=document.createElement("div");
   menu.className="menu";
   menu.style.left=x+"px";
@@ -179,8 +194,11 @@ function showMenu(x,y,current,onSelect,visible,onToggleVisibility,note,onEditNot
 
   const toggleBtn=document.createElement("button");
   toggleBtn.className="toggle-visibility";
-  toggleBtn.textContent=visible?"👁 Sichtbar":"🚫 Unsichtbar";
-  toggleBtn.onclick=()=>{onToggleVisibility(!visible);toggleBtn.textContent=!visible?"👁 Sichtbar":"🚫 Unsichtbar";updateBowl();};
+  toggleBtn.textContent = isVisible(currentBowl,posIndex) ? "👁 Sichtbar" : "🚫 Unsichtbar";
+  toggleBtn.onclick = () => {
+    toggleVisibility(currentBowl,posIndex);
+    toggleBtn.textContent = isVisible(currentBowl,posIndex) ? "👁 Sichtbar" : "🚫 Unsichtbar";
+  };
   menu.appendChild(toggleBtn);
 
   const noteInput=document.createElement("input");
@@ -193,11 +211,9 @@ function showMenu(x,y,current,onSelect,visible,onToggleVisibility,note,onEditNot
 
   document.body.appendChild(menu);
 
-  setTimeout(()=>{
-    document.addEventListener("click",function handler(e){
-      if(!menu.contains(e.target)){menu.remove();document.removeEventListener("click",handler);}
-    });
-  },10);
+  setTimeout(()=>{document.addEventListener("click",function handler(e){
+    if(!menu.contains(e.target)){menu.remove();document.removeEventListener("click",handler);}
+  });},10);
 }
 
 /* ================= DRAW POSITIONS ================= */
@@ -216,9 +232,9 @@ function drawPositions(){
 
     btn.onclick=(e)=>{
       const data=bowlsData[currentBowl];
-      if(!data[i]) data[i]={sel:null,visible:true,note:""};
+      if(!data[i]) data[i]={sel:null,note:""}; // keine globale Sichtbarkeit
       const d=data[i];
-      showMenu(e.pageX,e.pageY,d.sel,val=>d.sel=val,d.visible,vis=>d.visible=vis,d.note,n=>d.note=n);
+      showMenu(e.pageX,e.pageY,d.sel,val=>d.sel=val,i,d.note,n=>d.note=n);
     };
     positionsGroup.appendChild(btn);
 
@@ -253,7 +269,7 @@ function updateBowl(){
     line.setAttribute("x2",target.x);
     line.setAttribute("y2",target.y);
     line.setAttribute("stroke","rgba(255,0,0,0.5)");
-    line.style.display=(obj.visible&&toggleView.checked)?"block":"none";
+    line.style.display = (isVisible(currentBowl,i) && toggleView.checked) ? "block" : "none";
     linesGroup.appendChild(line);
 
     const noteText=document.createElementNS("http://www.w3.org/2000/svg","text");
@@ -262,7 +278,7 @@ function updateBowl(){
     noteText.setAttribute("class","note");
     noteText.setAttribute("font-size","7px");
     noteText.textContent=obj.note||selectionOptions[obj.sel];
-    noteText.style.display=obj.visible?"block":"none";
+    noteText.style.display = isVisible(currentBowl,i) ? "block" : "none";
     positionsGroup.appendChild(noteText);
   }
 
