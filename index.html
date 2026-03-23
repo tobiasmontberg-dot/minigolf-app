@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>Minigolf-App – Entwicklerkontrolle</title>
 
-<!-- Firebase Scripts (Compat Version für direkten Browsergebrauch) -->
+<!-- Firebase Compat für Browser -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
@@ -14,22 +14,9 @@ svg { border:1px solid #444; background:#f0f0f0; margin-top:10px; }
 .note { font-size:8px; fill:blue; text-anchor:middle; dominant-baseline:middle; }
 button { margin:5px; cursor:pointer; }
 .position-btn { fill:#D2B48C; stroke:#333; stroke-width:1; cursor:pointer; }
-.menu {
-  position:absolute;
-  background:white;
-  border:1px solid #333;
-  padding:6px;
-  display:grid;
-  grid-template-columns: repeat(4, auto);
-  gap:5px;
-  z-index:1000;
-}
-.toggle-visibility {
-  grid-column: span 4;
-}
-#devBanner {
-  margin:10px; font-weight:bold; color:white; background:#444; padding:5px 10px; border-radius:5px; display:none;
-}
+.menu { position:absolute; background:white; border:1px solid #333; padding:6px; display:grid; grid-template-columns: repeat(4, auto); gap:5px; z-index:1000; }
+.toggle-visibility { grid-column: span 4; }
+#devBanner { margin:10px; font-weight:bold; color:white; background:#444; padding:5px 10px; border-radius:5px; display:none; }
 </style>
 </head>
 <body>
@@ -60,7 +47,7 @@ button { margin:5px; cursor:pointer; }
 </svg>
 
 <script>
-/* ================= FIREBASE SETUP ================= */
+/* ================= FIREBASE ================= */
 const firebaseConfig = {
   apiKey: "AIzaSyBBBBmP24Lmn_JQDTK5CFD5F_Xy4c7IKzY",
   authDomain: "gelsenkirchen-bulmke.firebaseapp.com",
@@ -70,13 +57,11 @@ const firebaseConfig = {
   appId: "1:890790425167:web:27e65d0146e27ae283303a",
   measurementId: "G-KM719BR5BJ"
 };
-
-// Firebase initialisieren
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const docRef = db.collection("minigolf").doc("global");
 
-/* ================= APP CODE ================= */
+/* ================= APP ================= */
 const isDev = window.location.search.includes("dev=true");
 if(isDev) document.getElementById("devBanner").style.display="block";
 
@@ -96,7 +81,7 @@ const selectionOptions={
   "R3":"rechter Lochrand"
 };
 
-let bowlsData=Array.from({length:totalBowls},()=>({}));
+let bowlsData = Array.from({length:totalBowls},()=>({}));
 let localVisible = {}; // pro Nutzer
 let currentBowl=0;
 
@@ -106,36 +91,31 @@ const bowlLabel=document.getElementById("bowlLabel");
 const toggleView=document.getElementById("toggleView");
 
 /* ================= LOCAL VISIBILITY ================= */
-function loadLocalVisibility() {
+function loadLocalVisibility(){
   const saved = localStorage.getItem("minigolfVisible");
-  if (saved) localVisible = JSON.parse(saved);
+  if(saved) localVisible = JSON.parse(saved);
 }
-function saveLocalVisibility() {
+function saveLocalVisibility(){
   localStorage.setItem("minigolfVisible", JSON.stringify(localVisible));
 }
 
-/* ================= LOAD FROM FIREBASE ================= */
+/* ================= LOAD DATA ================= */
 async function loadData(){
   try{
     const snap = await docRef.get();
     if(snap.exists){
       const data = snap.data().bowlsData;
       for(let i=0;i<totalBowls;i++) bowlsData[i] = data[i] || {};
-      updateBowl();
-      return;
     }
   } catch(e){
     console.log("Firebase Fehler, nutze localStorage", e);
+    const saved = localStorage.getItem("minigolfSave");
+    if(saved) bowlsData = JSON.parse(saved);
   }
-
-  const saved=localStorage.getItem("minigolfSave");
-  if(saved){
-    const parsed=JSON.parse(saved);
-    for(let i=0;i<totalBowls;i++) bowlsData[i]=parsed[i]||{};
-  }
+  updateBowl();
 }
 
-/* ================= SAVE TO FIREBASE ================= */
+/* ================= SAVE DATA ================= */
 async function saveData(){
   if(!isDev) return;
   await docRef.set({bowlsData});
@@ -143,54 +123,54 @@ async function saveData(){
 }
 
 /* ================= CALC TARGET ================= */
-function getAngleRad(i){return(i*30-90)*Math.PI/180;}
+function getAngleRad(i){return (i*30-90)*Math.PI/180;}
 function calculateTarget(sel,angle){
-  const startX=center.x+radius*Math.cos(angle);
-  const startY=center.y+radius*Math.sin(angle);
-  const dx=center.x-startX;
-  const dy=center.y-startY;
-  const len=Math.sqrt(dx*dx+dy*dy);
-  const nx=dx/len, ny=dy/len;
-  const step=holeRadius/3;
-  let offset=0;
+  const startX = center.x + radius*Math.cos(angle);
+  const startY = center.y + radius*Math.sin(angle);
+  const dx = center.x-startX;
+  const dy = center.y-startY;
+  const len = Math.sqrt(dx*dx + dy*dy);
+  const nx = dx/len, ny = dy/len;
+  const step = holeRadius/3;
+  let offset = 0;
   if(sel==="L1") offset=-step;
   if(sel==="L2") offset=-2*step;
   if(sel==="L3") offset=-3*step;
   if(sel==="R1") offset=step;
   if(sel==="R2") offset=2*step;
   if(sel==="R3") offset=3*step;
-  return {x:center.x+(-ny)*offset,y:center.y+(nx)*offset};
+  return {x:center.x+(-ny)*offset, y:center.y+(nx)*offset};
 }
 
 /* ================= MENU ================= */
 function showMenu(x,y,current,onSelect,note,i){
-  const menu=document.createElement("div");
+  const menu = document.createElement("div");
   menu.className="menu";
-  menu.style.left=x+"px";
-  menu.style.top=y+"px";
+  menu.style.left = x+"px";
+  menu.style.top = y+"px";
 
   if(isDev){
     Object.keys(selectionOptions).forEach(key=>{
-      const btn=document.createElement("button");
-      btn.textContent=key;
+      const btn = document.createElement("button");
+      btn.textContent = key;
       if(key===current) btn.style.background="#ccc";
-      btn.onclick=()=>{onSelect(key);updateBowl();menu.remove();};
+      btn.onclick = ()=>{ onSelect(key); updateBowl(); menu.remove(); };
       menu.appendChild(btn);
     });
   }
 
-  const valueDisplay=document.createElement("div");
+  const valueDisplay = document.createElement("div");
   valueDisplay.style.gridColumn="span 4";
   valueDisplay.style.textAlign="center";
   valueDisplay.style.fontWeight="bold";
-  valueDisplay.textContent=current?`${current} – ${selectionOptions[current]}`:"Keine Auswahl";
+  valueDisplay.textContent = current ? `${current} – ${selectionOptions[current]}` : "Keine Auswahl";
   menu.appendChild(valueDisplay);
 
   // Lokale Sichtbarkeit
-  const toggleBtn=document.createElement("button");
-  toggleBtn.className="toggle-visibility";
-  toggleBtn.textContent=(localVisible[i] ?? false) ? "👁 Sichtbar" : "🚫 Unsichtbar";
-  toggleBtn.onclick=()=> {
+  const toggleBtn = document.createElement("button");
+  toggleBtn.className = "toggle-visibility";
+  toggleBtn.textContent = (localVisible[i] ?? false) ? "👁 Sichtbar" : "🚫 Unsichtbar";
+  toggleBtn.onclick = ()=>{
     localVisible[i] = !localVisible[i];
     toggleBtn.textContent = localVisible[i] ? "👁 Sichtbar" : "🚫 Unsichtbar";
     saveLocalVisibility();
@@ -199,19 +179,18 @@ function showMenu(x,y,current,onSelect,note,i){
   menu.appendChild(toggleBtn);
 
   // Notiz
-  const noteInput=document.createElement("input");
-  noteInput.value=note||"";
-  noteInput.placeholder="Notiz";
+  const noteInput = document.createElement("input");
+  noteInput.value = note || "";
+  noteInput.placeholder = "Notiz";
   noteInput.style.gridColumn="span 4";
-  noteInput.readOnly=!isDev;
-  noteInput.onchange=()=>{if(isDev){onSelect(noteInput.value);updateBowl();}};
+  noteInput.readOnly = !isDev;
+  noteInput.onchange = ()=>{ if(isDev){ onSelect(noteInput.value); updateBowl(); } };
   menu.appendChild(noteInput);
 
   document.body.appendChild(menu);
-
   setTimeout(()=>{
-    document.addEventListener("click",function handler(e){
-      if(!menu.contains(e.target)){menu.remove();document.removeEventListener("click",handler);}
+    document.addEventListener("click", function handler(e){
+      if(!menu.contains(e.target)){ menu.remove(); document.removeEventListener("click",handler); }
     });
   },10);
 }
@@ -220,31 +199,31 @@ function showMenu(x,y,current,onSelect,note,i){
 function drawPositions(){
   positionsGroup.innerHTML="";
   for(let i=0;i<positionsCount;i++){
-    const angle=getAngleRad(i);
-    const x=center.x+radius*Math.cos(angle);
-    const y=center.y+radius*Math.sin(angle);
+    const angle = getAngleRad(i);
+    const x = center.x + radius*Math.cos(angle);
+    const y = center.y + radius*Math.sin(angle);
 
-    const btn=document.createElementNS("http://www.w3.org/2000/svg","circle");
+    const btn = document.createElementNS("http://www.w3.org/2000/svg","circle");
     btn.setAttribute("cx",x);
     btn.setAttribute("cy",y);
     btn.setAttribute("r",8);
     btn.setAttribute("class","position-btn");
 
-    btn.onclick=(e)=>{
-      const data=bowlsData[currentBowl];
-      if(!data[i]) data[i]={sel:null,note:""};
-      const d=data[i];
-      showMenu(e.pageX,e.pageY,d.sel,val=>d.sel=val,d.note,i);
+    btn.onclick = (e)=>{
+      const data = bowlsData[currentBowl];
+      if(!data[i]) data[i] = {sel:null,note:""};
+      const d = data[i];
+      showMenu(e.pageX,e.pageY,d.sel, val=>d.sel=val, d.note, i);
     };
     positionsGroup.appendChild(btn);
 
-    const txt=document.createElementNS("http://www.w3.org/2000/svg","text");
+    const txt = document.createElementNS("http://www.w3.org/2000/svg","text");
     txt.setAttribute("x",x);
     txt.setAttribute("y",y+1);
     txt.setAttribute("font-size","7px");
     txt.setAttribute("text-anchor","middle");
     txt.setAttribute("dominant-baseline","middle");
-    txt.textContent=(i===0?"12":i);
+    txt.textContent = (i===0 ? "12" : i);
     positionsGroup.appendChild(txt);
   }
 }
@@ -253,17 +232,17 @@ function drawPositions(){
 function updateBowl(){
   linesGroup.innerHTML="";
   positionsGroup.querySelectorAll(".note").forEach(n=>n.remove());
-  bowlLabel.textContent=`Bahn ${currentBowl+1} / ${totalBowls}`;
-  const data=bowlsData[currentBowl];
+  bowlLabel.textContent = `Bahn ${currentBowl+1} / ${totalBowls}`;
+  const data = bowlsData[currentBowl];
   for(let i in data){
-    const obj=data[i];
+    const obj = data[i];
     if(!obj.sel) continue;
-    const angle=getAngleRad(i);
-    const startX=center.x+radius*Math.cos(angle);
-    const startY=center.y+radius*Math.sin(angle);
-    const target=calculateTarget(obj.sel,angle);
+    const angle = getAngleRad(i);
+    const startX = center.x + radius*Math.cos(angle);
+    const startY = center.y + radius*Math.sin(angle);
+    const target = calculateTarget(obj.sel,angle);
 
-    const line=document.createElementNS("http://www.w3.org/2000/svg","line");
+    const line = document.createElementNS("http://www.w3.org/2000/svg","line");
     line.setAttribute("x1",startX);
     line.setAttribute("y1",startY);
     line.setAttribute("x2",target.x);
@@ -272,25 +251,24 @@ function updateBowl(){
     line.style.display = (localVisible[i] ?? false && toggleView.checked) ? "block" : "none";
     linesGroup.appendChild(line);
 
-    const noteText=document.createElementNS("http://www.w3.org/2000/svg","text");
+    const noteText = document.createElementNS("http://www.w3.org/2000/svg","text");
     noteText.setAttribute("x",center.x+radius*0.6*Math.cos(angle));
     noteText.setAttribute("y",center.y+radius*0.6*Math.sin(angle));
     noteText.setAttribute("class","note");
-    noteText.setAttribute("font-size","7px");
-    noteText.textContent=obj.note||selectionOptions[obj.sel];
+    noteText.setAttribute("font-size","7");
+    noteText.textContent = obj.note || selectionOptions[obj.sel];
     noteText.style.display = (localVisible[i] ?? false) ? "block" : "none";
     positionsGroup.appendChild(noteText);
   }
-
   saveLocalVisibility();
-  localStorage.setItem("minigolfSave",JSON.stringify(bowlsData));
+  localStorage.setItem("minigolfSave", JSON.stringify(bowlsData));
 }
 
-/* ================= BUTTON EVENTS ================= */
-document.getElementById("prevBowl").onclick=()=>{if(currentBowl>0) currentBowl--;updateBowl();};
-document.getElementById("nextBowl").onclick=()=>{if(currentBowl<totalBowls-1) currentBowl++;updateBowl();};
-document.getElementById("saveBtn").onclick=saveData;
-toggleView.onchange=updateBowl;
+/* ================= EVENTS ================= */
+document.getElementById("prevBowl").onclick = ()=>{ if(currentBowl>0) currentBowl--; updateBowl(); };
+document.getElementById("nextBowl").onclick = ()=>{ if(currentBowl<totalBowls-1) currentBowl++; updateBowl(); };
+document.getElementById("saveBtn").onclick = saveData;
+toggleView.onchange = updateBowl;
 
 /* ================= START ================= */
 loadLocalVisibility();
