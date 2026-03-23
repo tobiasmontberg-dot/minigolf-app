@@ -4,32 +4,18 @@
 <meta charset="UTF-8">
 <title>Minigolf-App – Entwicklerkontrolle</title>
 
-<!-- Firebase Scripts (Compat Version für direkten Browsergebrauch) -->
+<!-- Firebase Scripts -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
 <style>
 body { font-family: sans-serif; display:flex; flex-direction:column; align-items:center; margin:20px; }
 svg { border:1px solid #444; background:#f0f0f0; margin-top:10px; }
-.note { font-size:8px; fill:blue; text-anchor:middle; dominant-baseline:middle; }
 button { margin:5px; cursor:pointer; }
 .position-btn { fill:#D2B48C; stroke:#333; stroke-width:1; cursor:pointer; }
-.menu {
-  position:absolute;
-  background:white;
-  border:1px solid #333;
-  padding:6px;
-  display:grid;
-  grid-template-columns: repeat(4, auto);
-  gap:5px;
-  z-index:1000;
-}
-.toggle-visibility {
-  grid-column: span 4;
-}
-#devBanner {
-  margin:10px; font-weight:bold; color:white; background:#444; padding:5px 10px; border-radius:5px; display:none;
-}
+.menu { position:absolute; background:white; border:1px solid #333; padding:6px; display:grid; grid-template-columns: repeat(4, auto); gap:5px; z-index:1000; }
+.toggle-visibility { grid-column: span 4; }
+#devBanner { margin:10px; font-weight:bold; color:white; background:#444; padding:5px 10px; border-radius:5px; display:none; }
 </style>
 </head>
 <body>
@@ -60,7 +46,7 @@ button { margin:5px; cursor:pointer; }
 </svg>
 
 <script>
-/* ================= FIREBASE SETUP ================= */
+// ================= FIREBASE =================
 const firebaseConfig = {
   apiKey: "AIzaSyBBBBmP24Lmn_JQDTK5CFD5F_Xy4c7IKzY",
   authDomain: "gelsenkirchen-bulmke.firebaseapp.com",
@@ -70,13 +56,11 @@ const firebaseConfig = {
   appId: "1:890790425167:web:27e65d0146e27ae283303a",
   measurementId: "G-KM719BR5BJ"
 };
-
-// Firebase initialisieren
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const docRef = db.collection("minigolf").doc("global");
 
-/* ================= APP CODE ================= */
+// ================= APP =================
 const isDev = window.location.search.includes("dev=true");
 if(isDev) document.getElementById("devBanner").style.display="block";
 
@@ -85,7 +69,6 @@ const radius=80;
 const holeRadius=10;
 const positionsCount=12;
 const totalBowls=18;
-
 const selectionOptions={
   "0":"Gerade ins Loch",
   "L1":"leicht links im Loch",
@@ -104,13 +87,8 @@ const positionsGroup=document.getElementById("positions");
 const bowlLabel=document.getElementById("bowlLabel");
 const toggleView=document.getElementById("toggleView");
 
-/* ================= LOKALE SICHTBARKEIT ================= */
 let userVisibility = JSON.parse(localStorage.getItem("minigolfVisibility")) || {};
-
-function isVisible(bowlIndex, posIndex){
-  return userVisibility[bowlIndex]?.[posIndex] ?? false; // default unsichtbar
-}
-
+function isVisible(bowlIndex, posIndex){ return userVisibility[bowlIndex]?.[posIndex] ?? false; }
 function toggleVisibility(bowlIndex, posIndex){
   if(!userVisibility[bowlIndex]) userVisibility[bowlIndex]={};
   userVisibility[bowlIndex][posIndex] = !isVisible(bowlIndex,posIndex);
@@ -118,10 +96,7 @@ function toggleVisibility(bowlIndex, posIndex){
   updateBowl();
 }
 
-/* ================= FUNKTIONEN ================= */
 function getAngleRad(i){return(i*30-90)*Math.PI/180;}
-
-/* ================= LOAD FROM FIREBASE ================= */
 async function loadData(){
   try{
     const snap = await docRef.get();
@@ -131,25 +106,12 @@ async function loadData(){
       updateBowl();
       return;
     }
-  } catch(e){
-    console.log("Firebase Fehler, nutze localStorage", e);
-  }
-
+  } catch(e){ console.log("Firebase Fehler, nutze localStorage", e); }
   const saved=localStorage.getItem("minigolfSave");
-  if(saved){
-    const parsed=JSON.parse(saved);
-    for(let i=0;i<totalBowls;i++) bowlsData[i]=parsed[i]||{};
-  }
+  if(saved){ const parsed=JSON.parse(saved); for(let i=0;i<totalBowls;i++) bowlsData[i]=parsed[i]||{}; }
 }
+async function saveData(){ if(!isDev) return; await docRef.set({bowlsData}); alert("Online gespeichert!"); }
 
-/* ================= SAVE TO FIREBASE ================= */
-async function saveData(){
-  if(!isDev) return;
-  await docRef.set({bowlsData});
-  alert("Online gespeichert!");
-}
-
-/* ================= CALC TARGET ================= */
 function calculateTarget(sel,angle){
   const startX=center.x+radius*Math.cos(angle);
   const startY=center.y+radius*Math.sin(angle);
@@ -168,12 +130,11 @@ function calculateTarget(sel,angle){
   return {x:center.x+(-ny)*offset,y:center.y+(nx)*offset};
 }
 
-/* ================= MENU ================= */
+// ================= MENU =================
 function showMenu(x,y,current,onSelect,posIndex,note,onEditNote){
   const menu=document.createElement("div");
   menu.className="menu";
-  menu.style.left=x+"px";
-  menu.style.top=y+"px";
+  menu.style.left=x+"px"; menu.style.top=y+"px";
 
   if(isDev){
     Object.keys(selectionOptions).forEach(key=>{
@@ -186,37 +147,26 @@ function showMenu(x,y,current,onSelect,posIndex,note,onEditNote){
   }
 
   const valueDisplay=document.createElement("div");
-  valueDisplay.style.gridColumn="span 4";
-  valueDisplay.style.textAlign="center";
-  valueDisplay.style.fontWeight="bold";
+  valueDisplay.style.gridColumn="span 4"; valueDisplay.style.textAlign="center"; valueDisplay.style.fontWeight="bold";
   valueDisplay.textContent=current?`${current} – ${selectionOptions[current]}`:"Keine Auswahl";
   menu.appendChild(valueDisplay);
 
   const toggleBtn=document.createElement("button");
   toggleBtn.className="toggle-visibility";
   toggleBtn.textContent = isVisible(currentBowl,posIndex) ? "👁 Sichtbar" : "🚫 Unsichtbar";
-  toggleBtn.onclick = () => {
-    toggleVisibility(currentBowl,posIndex);
-    toggleBtn.textContent = isVisible(currentBowl,posIndex) ? "👁 Sichtbar" : "🚫 Unsichtbar";
-  };
+  toggleBtn.onclick = () => { toggleVisibility(currentBowl,posIndex); toggleBtn.textContent = isVisible(currentBowl,posIndex) ? "👁 Sichtbar" : "🚫 Unsichtbar"; };
   menu.appendChild(toggleBtn);
 
   const noteInput=document.createElement("input");
-  noteInput.value=note||"";
-  noteInput.placeholder="Notiz";
-  noteInput.style.gridColumn="span 4";
-  noteInput.readOnly=!isDev;
+  noteInput.value=note||""; noteInput.placeholder="Notiz"; noteInput.style.gridColumn="span 4"; noteInput.readOnly=!isDev;
   noteInput.onchange=()=>{if(isDev){onEditNote(noteInput.value);updateBowl();}};
   menu.appendChild(noteInput);
 
   document.body.appendChild(menu);
-
-  setTimeout(()=>{document.addEventListener("click",function handler(e){
-    if(!menu.contains(e.target)){menu.remove();document.removeEventListener("click",handler);}
-  });},10);
+  setTimeout(()=>{document.addEventListener("click",function handler(e){if(!menu.contains(e.target)){menu.remove();document.removeEventListener("click",handler);}});},10);
 }
 
-/* ================= DRAW POSITIONS ================= */
+// ================= POSITIONSZEICHNUNG =================
 function drawPositions(){
   positionsGroup.innerHTML="";
   for(let i=0;i<positionsCount;i++){
@@ -225,36 +175,93 @@ function drawPositions(){
     const y=center.y+radius*Math.sin(angle);
 
     const btn=document.createElementNS("http://www.w3.org/2000/svg","circle");
-    btn.setAttribute("cx",x);
-    btn.setAttribute("cy",y);
-    btn.setAttribute("r",8);
+    btn.setAttribute("cx",x); btn.setAttribute("cy",y); btn.setAttribute("r",8);
     btn.setAttribute("class","position-btn");
 
     btn.onclick=(e)=>{
       const data=bowlsData[currentBowl];
-      if(!data[i]) data[i]={sel:null,note:""}; // keine globale Sichtbarkeit
+      if(!data[i]) data[i]={sel:null,note:""};
       const d=data[i];
       showMenu(e.pageX,e.pageY,d.sel,val=>d.sel=val,i,d.note,n=>d.note=n);
     };
     positionsGroup.appendChild(btn);
 
     const txt=document.createElementNS("http://www.w3.org/2000/svg","text");
-    txt.setAttribute("x",x);
-    txt.setAttribute("y",y+1);
-    txt.setAttribute("font-size","7px");
-    txt.setAttribute("text-anchor","middle");
-    txt.setAttribute("dominant-baseline","middle");
-    txt.textContent=(i===0?"12":i);
+    txt.setAttribute("x",x); txt.setAttribute("y",y+1);
+    txt.setAttribute("font-size","7px"); txt.setAttribute("text-anchor","middle");
+    txt.setAttribute("dominant-baseline","middle"); txt.textContent=(i===0?"12":i);
     positionsGroup.appendChild(txt);
   }
 }
 
-/* ================= UPDATE BOWL ================= */
+// ================= INTELLIGENTE SPRECHBLASE =================
+function drawBubble(x, y, text) {
+  const bubbleGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  bubbleGroup.setAttribute("transform", `scale(0)`); bubbleGroup.setAttribute("opacity", "0");
+
+  const padding = 6;
+  const fontSize = 7;
+  const svgWidth = 200, svgHeight = 200;
+  const holeX = 100, holeY = 100, holeR = 10;
+
+  const textElem = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  textElem.setAttribute("font-size", fontSize); textElem.setAttribute("dominant-baseline", "middle"); textElem.setAttribute("text-anchor", "middle");
+  textElem.textContent = text;
+  bubbleGroup.appendChild(textElem);
+
+  positionsGroup.appendChild(bubbleGroup);
+  const bbox = textElem.getBBox();
+  const rectWidth = bbox.width + padding*2;
+  const rectHeight = bbox.height + padding*2;
+
+  let side = (x < svgWidth/2) ? "right" : "left";
+  let rectX = (side === "right") ? x + 8 : x - rectWidth - 8;
+  rectX = Math.max(2, Math.min(rectX, svgWidth - rectWidth - 2));
+
+  let rectY = y - rectHeight/2 - 8;
+  const rectTop = rectY, rectBottom = rectY + rectHeight;
+  const safety = 2;
+
+  if(!(rectBottom < holeY - holeR - safety || rectTop > holeY + holeR + safety)) {
+    if(rectY < holeY) rectY = holeY - holeR - rectHeight - safety;
+    else rectY = holeY + holeR + safety;
+  }
+
+  textElem.setAttribute("x", rectX + rectWidth/2); textElem.setAttribute("y", rectY + rectHeight/2);
+
+  const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  rect.setAttribute("x", rectX); rect.setAttribute("y", rectY); rect.setAttribute("width", rectWidth); rect.setAttribute("height", rectHeight);
+  rect.setAttribute("rx", 8); rect.setAttribute("ry", 8); rect.setAttribute("fill", "#DCF8C6");
+  rect.setAttribute("stroke", "#34B7F1"); rect.setAttribute("stroke-width", 0.5);
+  bubbleGroup.insertBefore(rect, textElem);
+
+  const tri = document.createElementNS("http://www.w3.org/2000/svg","polygon");
+  const triSize = 6;
+  let triPoints = (side==="right")
+    ? [`${x},${y}`, `${x+triSize},${rectY + rectHeight - triSize}`, `${x+triSize},${rectY + rectHeight - triSize/2}`]
+    : [`${x},${y}`, `${x-triSize},${rectY + rectHeight - triSize}`, `${x-triSize},${rectY + rectHeight - triSize/2}`];
+  tri.setAttribute("points", triPoints.join(" "));
+  tri.setAttribute("fill", "#DCF8C6"); tri.setAttribute("stroke", "#34B7F1"); tri.setAttribute("stroke-width", 0.5);
+  bubbleGroup.appendChild(tri);
+
+  setTimeout(() => {
+    bubbleGroup.animate([
+      { transform: 'scale(0)', opacity: 0 },
+      { transform: 'scale(1.05)', opacity: 1 },
+      { transform: 'scale(1)', opacity: 1 }
+    ], { duration: 300, easing: 'ease-out', fill: 'forwards' });
+  }, 0);
+
+  return bubbleGroup;
+}
+
+// ================= UPDATE BOWL =================
 function updateBowl(){
   linesGroup.innerHTML="";
-  positionsGroup.querySelectorAll(".note").forEach(n=>n.remove());
+  positionsGroup.querySelectorAll(".bubble").forEach(n=>n.remove());
   bowlLabel.textContent=`Bahn ${currentBowl+1} / ${totalBowls}`;
   const data=bowlsData[currentBowl];
+
   for(let i in data){
     const obj=data[i];
     if(!obj.sel) continue;
@@ -264,38 +271,33 @@ function updateBowl(){
     const target=calculateTarget(obj.sel,angle);
 
     const line=document.createElementNS("http://www.w3.org/2000/svg","line");
-    line.setAttribute("x1",startX);
-    line.setAttribute("y1",startY);
-    line.setAttribute("x2",target.x);
-    line.setAttribute("y2",target.y);
+    line.setAttribute("x1",startX); line.setAttribute("y1",startY);
+    line.setAttribute("x2",target.x); line.setAttribute("y2",target.y);
     line.setAttribute("stroke","rgba(255,0,0,0.5)");
     line.style.display = (isVisible(currentBowl,i) && toggleView.checked) ? "block" : "none";
     linesGroup.appendChild(line);
 
-    const noteText=document.createElementNS("http://www.w3.org/2000/svg","text");
-    noteText.setAttribute("x",center.x+radius*0.6*Math.cos(angle));
-    noteText.setAttribute("y",center.y+radius*0.6*Math.sin(angle));
-    noteText.setAttribute("class","note");
-    noteText.setAttribute("font-size","7px");
-    noteText.textContent=obj.note||selectionOptions[obj.sel];
-    noteText.style.display = isVisible(currentBowl,i) ? "block" : "none";
-    positionsGroup.appendChild(noteText);
+    if(isVisible(currentBowl,i)){
+      const bubble = drawBubble(center.x + radius*0.6*Math.cos(angle), center.y + radius*0.6*Math.sin(angle), obj.note || selectionOptions[obj.sel]);
+      bubble.setAttribute("class","bubble");
+      positionsGroup.appendChild(bubble);
+    }
   }
 
   localStorage.setItem("minigolfSave",JSON.stringify(bowlsData));
 }
 
-/* ================= BUTTON EVENTS ================= */
+// ================= BUTTONS =================
 document.getElementById("prevBowl").onclick=()=>{if(currentBowl>0) currentBowl--;updateBowl();};
 document.getElementById("nextBowl").onclick=()=>{if(currentBowl<totalBowls-1) currentBowl++;updateBowl();};
 document.getElementById("saveBtn").onclick=saveData;
 toggleView.onchange=updateBowl;
 
-/* ================= START ================= */
+// ================= START =================
 drawPositions();
 loadData();
 
-/* ================= LIVE UPDATE ================= */
+// ================= LIVE UPDATE =================
 docRef.onSnapshot((snap)=>{
   if(snap.exists){
     const data = snap.data().bowlsData;
