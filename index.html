@@ -97,6 +97,7 @@ const selectionOptions={
 };
 
 let bowlsData=Array.from({length:totalBowls},()=>({}));
+let localVisible = {}; // pro Nutzer
 let currentBowl=0;
 
 const linesGroup=document.getElementById("lines");
@@ -104,7 +105,14 @@ const positionsGroup=document.getElementById("positions");
 const bowlLabel=document.getElementById("bowlLabel");
 const toggleView=document.getElementById("toggleView");
 
-function getAngleRad(i){return(i*30-90)*Math.PI/180;}
+/* ================= LOCAL VISIBILITY ================= */
+function loadLocalVisibility() {
+  const saved = localStorage.getItem("minigolfVisible");
+  if (saved) localVisible = JSON.parse(saved);
+}
+function saveLocalVisibility() {
+  localStorage.setItem("minigolfVisible", JSON.stringify(localVisible));
+}
 
 /* ================= LOAD FROM FIREBASE ================= */
 async function loadData(){
@@ -135,6 +143,7 @@ async function saveData(){
 }
 
 /* ================= CALC TARGET ================= */
+function getAngleRad(i){return(i*30-90)*Math.PI/180;}
 function calculateTarget(sel,angle){
   const startX=center.x+radius*Math.cos(angle);
   const startY=center.y+radius*Math.sin(angle);
@@ -154,7 +163,7 @@ function calculateTarget(sel,angle){
 }
 
 /* ================= MENU ================= */
-function showMenu(x,y,current,onSelect,visible,onToggleVisibility,note,onEditNote){
+function showMenu(x,y,current,onSelect,note,i){
   const menu=document.createElement("div");
   menu.className="menu";
   menu.style.left=x+"px";
@@ -177,18 +186,25 @@ function showMenu(x,y,current,onSelect,visible,onToggleVisibility,note,onEditNot
   valueDisplay.textContent=current?`${current} – ${selectionOptions[current]}`:"Keine Auswahl";
   menu.appendChild(valueDisplay);
 
+  // Lokale Sichtbarkeit
   const toggleBtn=document.createElement("button");
   toggleBtn.className="toggle-visibility";
-  toggleBtn.textContent=visible?"👁 Sichtbar":"🚫 Unsichtbar";
-  toggleBtn.onclick=()=>{onToggleVisibility(!visible);toggleBtn.textContent=!visible?"👁 Sichtbar":"🚫 Unsichtbar";updateBowl();};
+  toggleBtn.textContent=(localVisible[i] ?? false) ? "👁 Sichtbar" : "🚫 Unsichtbar";
+  toggleBtn.onclick=()=> {
+    localVisible[i] = !localVisible[i];
+    toggleBtn.textContent = localVisible[i] ? "👁 Sichtbar" : "🚫 Unsichtbar";
+    saveLocalVisibility();
+    updateBowl();
+  };
   menu.appendChild(toggleBtn);
 
+  // Notiz
   const noteInput=document.createElement("input");
   noteInput.value=note||"";
   noteInput.placeholder="Notiz";
   noteInput.style.gridColumn="span 4";
   noteInput.readOnly=!isDev;
-  noteInput.onchange=()=>{if(isDev){onEditNote(noteInput.value);updateBowl();}};
+  noteInput.onchange=()=>{if(isDev){onSelect(noteInput.value);updateBowl();}};
   menu.appendChild(noteInput);
 
   document.body.appendChild(menu);
@@ -216,9 +232,9 @@ function drawPositions(){
 
     btn.onclick=(e)=>{
       const data=bowlsData[currentBowl];
-      if(!data[i]) data[i]={sel:null,visible:true,note:""};
+      if(!data[i]) data[i]={sel:null,note:""};
       const d=data[i];
-      showMenu(e.pageX,e.pageY,d.sel,val=>d.sel=val,d.visible,vis=>d.visible=vis,d.note,n=>d.note=n);
+      showMenu(e.pageX,e.pageY,d.sel,val=>d.sel=val,d.note,i);
     };
     positionsGroup.appendChild(btn);
 
@@ -253,7 +269,7 @@ function updateBowl(){
     line.setAttribute("x2",target.x);
     line.setAttribute("y2",target.y);
     line.setAttribute("stroke","rgba(255,0,0,0.5)");
-    line.style.display=(obj.visible&&toggleView.checked)?"block":"none";
+    line.style.display = (localVisible[i] ?? false && toggleView.checked) ? "block" : "none";
     linesGroup.appendChild(line);
 
     const noteText=document.createElementNS("http://www.w3.org/2000/svg","text");
@@ -262,10 +278,11 @@ function updateBowl(){
     noteText.setAttribute("class","note");
     noteText.setAttribute("font-size","7px");
     noteText.textContent=obj.note||selectionOptions[obj.sel];
-    noteText.style.display=obj.visible?"block":"none";
+    noteText.style.display = (localVisible[i] ?? false) ? "block" : "none";
     positionsGroup.appendChild(noteText);
   }
 
+  saveLocalVisibility();
   localStorage.setItem("minigolfSave",JSON.stringify(bowlsData));
 }
 
@@ -276,6 +293,7 @@ document.getElementById("saveBtn").onclick=saveData;
 toggleView.onchange=updateBowl;
 
 /* ================= START ================= */
+loadLocalVisibility();
 drawPositions();
 loadData();
 
