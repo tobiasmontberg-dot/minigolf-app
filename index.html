@@ -39,10 +39,36 @@ button { margin:5px; cursor:pointer; }
 </label>
 
 <svg width="400" height="400" viewBox="0 0 200 200">
-  <circle cx="100" cy="100" r="80" fill="#c0c0c0"/>
+  <!-- Große graue Bahn mit dünner schwarzer Umrandung -->
+  <circle cx="100" cy="100" r="80" fill="#c0c0c0" stroke="black" stroke-width="1"/>
+
+  <!-- Loch in der Mitte -->
   <circle cx="100" cy="100" r="10" fill="black"/>
+
+  <!-- Linien der Positionen -->
   <g id="lines"></g>
+
+  <!-- Positionen und Buttons -->
   <g id="positions"></g>
+
+  <!-- SVG-Defs: Gradient + Schatten -->
+  <defs>
+    <radialGradient id="btnGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFACD"/>
+      <stop offset="100%" stop-color="#D2B48C"/>
+    </radialGradient>
+    <radialGradient id="btnGradientHover" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFFE0"/>
+      <stop offset="100%" stop-color="#FFA500"/>
+    </radialGradient>
+    <radialGradient id="btnGradientActive" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFD700"/>
+      <stop offset="100%" stop-color="#FF8C00"/>
+    </radialGradient>
+    <filter id="btnShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.3)"/>
+    </filter>
+  </defs>
 </svg>
 
 <script>
@@ -170,53 +196,30 @@ function showMenu(x,y,current,onSelect,posIndex,note,onEditNote){
 function drawPositions(){
   positionsGroup.innerHTML="";
 
-  // ================= SVG Farbverläufe + Schatten =================
-  const defs = document.createElementNS("http://www.w3.org/2000/svg","defs");
-  defs.innerHTML = `
-    <radialGradient id="btnGradient" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#FFFACD" />
-      <stop offset="100%" stop-color="#D2B48C" />
-    </radialGradient>
-    <radialGradient id="btnGradientHover" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#FFFFE0" />
-      <stop offset="100%" stop-color="#FFA500" />
-    </radialGradient>
-    <radialGradient id="btnGradientActive" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#FFD700" />
-      <stop offset="100%" stop-color="#FF8C00" />
-    </radialGradient>
-    <filter id="btnShadow" x="-50%" y="-50%" width="200%" height="200%">
-      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.3)"/>
-    </filter>
-  `;
-  document.querySelector("svg").appendChild(defs);
-
   for(let i=0;i<positionsCount;i++){
     const angle = getAngleRad(i);
     const x = center.x + radius * Math.cos(angle);
     const y = center.y + radius * Math.sin(angle);
 
-    // Unsichtbare Hitbox
     const hitArea = document.createElementNS("http://www.w3.org/2000/svg","circle");
     hitArea.setAttribute("cx", x);
     hitArea.setAttribute("cy", y);
-    hitArea.setAttribute("r", 22); // große Klickzone
+    hitArea.setAttribute("r", 22);
     hitArea.setAttribute("fill", "transparent");
     hitArea.style.cursor = "pointer";
     positionsGroup.appendChild(hitArea);
 
-    // Sichtbarer Button (ursprüngliche Größe)
+    // Sichtbarer Button mit dünnem Rand
     const btn = document.createElementNS("http://www.w3.org/2000/svg","circle");
     btn.setAttribute("cx", x);
     btn.setAttribute("cy", y);
-    btn.setAttribute("r", 8);
+    btn.setAttribute("r", 10);
     btn.setAttribute("fill", "url(#btnGradient)");
-    btn.setAttribute("stroke", "#333");
-    btn.setAttribute("stroke-width", 1);
+    btn.setAttribute("stroke", "#222");
+    btn.setAttribute("stroke-width", 1); // Dünner Rand
     btn.setAttribute("filter", "url(#btnShadow)");
     btn.style.cursor = "pointer";
 
-    // Hover / Klick Effekte
     btn.addEventListener("mouseenter", ()=>{ btn.setAttribute("fill","url(#btnGradientHover)"); });
     btn.addEventListener("mouseleave", ()=>{ btn.setAttribute("fill","url(#btnGradient)"); });
     btn.addEventListener("mousedown", ()=>{ btn.setAttribute("fill","url(#btnGradientActive)"); });
@@ -224,7 +227,6 @@ function drawPositions(){
 
     positionsGroup.appendChild(btn);
 
-    // Klick öffnet Menü
     const openMenu = (e)=>{
       const data = bowlsData[currentBowl];
       if(!data[i]) data[i] = {sel:null,note:""};
@@ -234,7 +236,6 @@ function drawPositions(){
     hitArea.onclick = openMenu;
     btn.onclick = openMenu;
 
-    // Text
     const txt = document.createElementNS("http://www.w3.org/2000/svg","text");
     txt.setAttribute("x", x);
     txt.setAttribute("y", y + 1);
