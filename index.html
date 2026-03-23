@@ -12,7 +12,7 @@
 body { font-family: sans-serif; display:flex; flex-direction:column; align-items:center; margin:20px; }
 svg { border:1px solid #444; background:#f0f0f0; margin-top:10px; }
 button { margin:5px; cursor:pointer; }
-.position-btn { fill:#D2B48C; stroke:#333; stroke-width:1; cursor:pointer; }
+.position-btn { stroke:#333; stroke-width:1; cursor:pointer; }
 .menu { position:absolute; background:white; border:1px solid #333; padding:6px; display:grid; grid-template-columns: repeat(4, auto); gap:5px; z-index:1000; }
 .toggle-visibility { grid-column: span 4; }
 #devBanner { margin:10px; font-weight:bold; color:white; background:#444; padding:5px 10px; border-radius:5px; display:none; }
@@ -169,27 +169,80 @@ function showMenu(x,y,current,onSelect,posIndex,note,onEditNote){
 // ================= POSITIONSZEICHNUNG =================
 function drawPositions(){
   positionsGroup.innerHTML="";
+
+  // ================= SVG Farbverläufe + Schatten =================
+  const defs = document.createElementNS("http://www.w3.org/2000/svg","defs");
+  defs.innerHTML = `
+    <radialGradient id="btnGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFACD" />
+      <stop offset="100%" stop-color="#D2B48C" />
+    </radialGradient>
+    <radialGradient id="btnGradientHover" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFFE0" />
+      <stop offset="100%" stop-color="#FFA500" />
+    </radialGradient>
+    <radialGradient id="btnGradientActive" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFD700" />
+      <stop offset="100%" stop-color="#FF8C00" />
+    </radialGradient>
+    <filter id="btnShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.3)"/>
+    </filter>
+  `;
+  document.querySelector("svg").appendChild(defs);
+
   for(let i=0;i<positionsCount;i++){
-    const angle=getAngleRad(i);
-    const x=center.x+radius*Math.cos(angle);
-    const y=center.y+radius*Math.sin(angle);
+    const angle = getAngleRad(i);
+    const x = center.x + radius * Math.cos(angle);
+    const y = center.y + radius * Math.sin(angle);
 
-    const btn=document.createElementNS("http://www.w3.org/2000/svg","circle");
-    btn.setAttribute("cx",x); btn.setAttribute("cy",y); btn.setAttribute("r",8);
-    btn.setAttribute("class","position-btn");
+    // Unsichtbare Hitbox
+    const hitArea = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    hitArea.setAttribute("cx", x);
+    hitArea.setAttribute("cy", y);
+    hitArea.setAttribute("r", 22); // große Klickzone
+    hitArea.setAttribute("fill", "transparent");
+    hitArea.style.cursor = "pointer";
+    positionsGroup.appendChild(hitArea);
 
-    btn.onclick=(e)=>{
-      const data=bowlsData[currentBowl];
-      if(!data[i]) data[i]={sel:null,note:""};
-      const d=data[i];
-      showMenu(e.pageX,e.pageY,d.sel,val=>d.sel=val,i,d.note,n=>d.note=n);
-    };
+    // Sichtbarer Button (ursprüngliche Größe)
+    const btn = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    btn.setAttribute("cx", x);
+    btn.setAttribute("cy", y);
+    btn.setAttribute("r", 8);
+    btn.setAttribute("fill", "url(#btnGradient)");
+    btn.setAttribute("stroke", "#333");
+    btn.setAttribute("stroke-width", 1);
+    btn.setAttribute("filter", "url(#btnShadow)");
+    btn.style.cursor = "pointer";
+
+    // Hover / Klick Effekte
+    btn.addEventListener("mouseenter", ()=>{ btn.setAttribute("fill","url(#btnGradientHover)"); });
+    btn.addEventListener("mouseleave", ()=>{ btn.setAttribute("fill","url(#btnGradient)"); });
+    btn.addEventListener("mousedown", ()=>{ btn.setAttribute("fill","url(#btnGradientActive)"); });
+    btn.addEventListener("mouseup", ()=>{ btn.setAttribute("fill","url(#btnGradientHover)"); });
+
     positionsGroup.appendChild(btn);
 
-    const txt=document.createElementNS("http://www.w3.org/2000/svg","text");
-    txt.setAttribute("x",x); txt.setAttribute("y",y+1);
-    txt.setAttribute("font-size","7px"); txt.setAttribute("text-anchor","middle");
-    txt.setAttribute("dominant-baseline","middle"); txt.textContent=(i===0?"12":i);
+    // Klick öffnet Menü
+    const openMenu = (e)=>{
+      const data = bowlsData[currentBowl];
+      if(!data[i]) data[i] = {sel:null,note:""};
+      const d = data[i];
+      showMenu(e.pageX, e.pageY, d.sel, val => d.sel = val, i, d.note, n => d.note = n);
+    };
+    hitArea.onclick = openMenu;
+    btn.onclick = openMenu;
+
+    // Text
+    const txt = document.createElementNS("http://www.w3.org/2000/svg","text");
+    txt.setAttribute("x", x);
+    txt.setAttribute("y", y + 1);
+    txt.setAttribute("font-size","7px");
+    txt.setAttribute("text-anchor","middle");
+    txt.setAttribute("dominant-baseline","middle");
+    txt.textContent = (i===0 ? "12" : i);
+    txt.style.pointerEvents = "none";
     positionsGroup.appendChild(txt);
   }
 }
@@ -197,15 +250,18 @@ function drawPositions(){
 // ================= INTELLIGENTE SPRECHBLASE =================
 function drawBubble(x, y, text) {
   const bubbleGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-  bubbleGroup.setAttribute("transform", `scale(0)`); bubbleGroup.setAttribute("opacity", "0");
+  bubbleGroup.setAttribute("transform", `scale(0)`); 
+  bubbleGroup.setAttribute("opacity", "0");
 
   const padding = 6;
   const fontSize = 7;
   const svgWidth = 200, svgHeight = 200;
   const holeX = 100, holeY = 100, holeR = 10;
 
-  const textElem = document.createElementNS("http://www.w3.org/2000/svg", "text");
-  textElem.setAttribute("font-size", fontSize); textElem.setAttribute("dominant-baseline", "middle"); textElem.setAttribute("text-anchor", "middle");
+  const textElem = document.createElementNS("http://www.w3.org/2000/svg","text");
+  textElem.setAttribute("font-size", fontSize); 
+  textElem.setAttribute("dominant-baseline", "middle"); 
+  textElem.setAttribute("text-anchor", "middle");
   textElem.textContent = text;
   bubbleGroup.appendChild(textElem);
 
@@ -227,11 +283,14 @@ function drawBubble(x, y, text) {
     else rectY = holeY + holeR + safety;
   }
 
-  textElem.setAttribute("x", rectX + rectWidth/2); textElem.setAttribute("y", rectY + rectHeight/2);
+  textElem.setAttribute("x", rectX + rectWidth/2); 
+  textElem.setAttribute("y", rectY + rectHeight/2);
 
-  const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-  rect.setAttribute("x", rectX); rect.setAttribute("y", rectY); rect.setAttribute("width", rectWidth); rect.setAttribute("height", rectHeight);
-  rect.setAttribute("rx", 8); rect.setAttribute("ry", 8); rect.setAttribute("fill", "#DCF8C6");
+  const rect = document.createElementNS("http://www.w3.org/2000/svg","rect");
+  rect.setAttribute("x", rectX); rect.setAttribute("y", rectY); 
+  rect.setAttribute("width", rectWidth); rect.setAttribute("height", rectHeight);
+  rect.setAttribute("rx", 8); rect.setAttribute("ry", 8); 
+  rect.setAttribute("fill", "#DCF8C6");
   rect.setAttribute("stroke", "#34B7F1"); rect.setAttribute("stroke-width", 0.5);
   bubbleGroup.insertBefore(rect, textElem);
 
