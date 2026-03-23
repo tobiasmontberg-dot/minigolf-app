@@ -40,13 +40,31 @@ button { margin:5px; cursor:pointer; }
 </label>
 
 <svg width="400" height="400" viewBox="0 0 200 200">
-  <circle cx="100" cy="100" r="80" fill="#c0c0c0" stroke="black" stroke-width="1"/>
+  <!-- Endkreis rot -->
+  <circle cx="100" cy="100" r="80" fill="url(#endCircleGradient)" />
+
+  <!-- Schmalere Stahlbanden mit 3D-Glanz -->
+  <circle cx="100" cy="100" r="80" fill="none" stroke="url(#steelGradient)" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Loch in der Mitte -->
   <circle cx="100" cy="100" r="10" fill="black"/>
+
   <g id="lines"></g>
   <g id="positions"></g>
   <g id="bowlNumber"></g>
 
   <defs>
+    <radialGradient id="endCircleGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FF5252"/>
+      <stop offset="100%" stop-color="#D32F2F"/>
+    </radialGradient>
+
+    <radialGradient id="steelGradient" cx="30%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#eeeeee"/>
+      <stop offset="50%" stop-color="#bbbbbb"/>
+      <stop offset="100%" stop-color="#888888"/>
+    </radialGradient>
+
     <radialGradient id="btnGradient" cx="50%" cy="50%" r="50%">
       <stop offset="0%" stop-color="#FFFACD"/>
       <stop offset="100%" stop-color="#D2B48C"/>
@@ -319,7 +337,7 @@ function updateBowlNumber(){
   circle.setAttribute("cx", x);
   circle.setAttribute("cy", y);
   circle.setAttribute("r", 12); 
-  circle.setAttribute("fill", "#C2A078"); // leicht dunkler als Button-Farbe
+  circle.setAttribute("fill", "#C2A078"); 
   circle.setAttribute("stroke", "#222");
   circle.setAttribute("stroke-width", 1);
   numberGroup.appendChild(circle);
@@ -358,7 +376,8 @@ function updateBowl(){
     const line=document.createElementNS("http://www.w3.org/2000/svg","line");
     line.setAttribute("x1",startX); line.setAttribute("y1",startY);
     line.setAttribute("x2",target.x); line.setAttribute("y2",target.y);
-    line.setAttribute("stroke","rgba(255,0,0,0.5)");
+    line.setAttribute("stroke","rgba(255,255,255,0.8)"); // ✅ weiß statt rot
+    line.setAttribute("stroke-width","1.5");
     line.style.display = (isVisible(currentBowl,i) && toggleView.checked) ? "block" : "none";
     linesGroup.appendChild(line);
 
