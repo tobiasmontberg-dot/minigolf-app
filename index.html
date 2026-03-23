@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <title>Minigolf-App – Entwicklerkontrolle</title>
+
+<!-- Firebase Scripts (Compat Version für direkten Browsergebrauch) -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
 <style>
 body { font-family: sans-serif; display:flex; flex-direction:column; align-items:center; margin:20px; }
 svg { border:1px solid #444; background:#f0f0f0; margin-top:10px; }
@@ -55,6 +60,23 @@ button { margin:5px; cursor:pointer; }
 </svg>
 
 <script>
+/* ================= FIREBASE SETUP ================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyBBBBmP24Lmn_JQDTK5CFD5F_Xy4c7IKzY",
+  authDomain: "gelsenkirchen-bulmke.firebaseapp.com",
+  projectId: "gelsenkirchen-bulmke",
+  storageBucket: "gelsenkirchen-bulmke.firebasestorage.app",
+  messagingSenderId: "890790425167",
+  appId: "1:890790425167:web:27e65d0146e27ae283303a",
+  measurementId: "G-KM719BR5BJ"
+};
+
+// Firebase initialisieren
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const docRef = db.collection("minigolf").doc("global");
+
+/* ================= APP CODE ================= */
 const isDev = window.location.search.includes("dev=true");
 if(isDev) document.getElementById("devBanner").style.display="block";
 
@@ -74,7 +96,7 @@ const selectionOptions={
   "R3":"rechter Lochrand"
 };
 
-const bowlsData=Array.from({length:totalBowls},()=>({}));
+let bowlsData=Array.from({length:totalBowls},()=>({}));
 let currentBowl=0;
 
 const linesGroup=document.getElementById("lines");
@@ -84,7 +106,20 @@ const toggleView=document.getElementById("toggleView");
 
 function getAngleRad(i){return(i*30-90)*Math.PI/180;}
 
-function loadData(){
+/* ================= LOAD FROM FIREBASE ================= */
+async function loadData(){
+  try{
+    const snap = await docRef.get();
+    if(snap.exists){
+      const data = snap.data().bowlsData;
+      for(let i=0;i<totalBowls;i++) bowlsData[i] = data[i] || {};
+      updateBowl();
+      return;
+    }
+  } catch(e){
+    console.log("Firebase Fehler, nutze localStorage", e);
+  }
+
   const saved=localStorage.getItem("minigolfSave");
   if(saved){
     const parsed=JSON.parse(saved);
@@ -92,6 +127,14 @@ function loadData(){
   }
 }
 
+/* ================= SAVE TO FIREBASE ================= */
+async function saveData(){
+  if(!isDev) return;
+  await docRef.set({bowlsData});
+  alert("Online gespeichert!");
+}
+
+/* ================= CALC TARGET ================= */
 function calculateTarget(sel,angle){
   const startX=center.x+radius*Math.cos(angle);
   const startY=center.y+radius*Math.sin(angle);
@@ -110,28 +153,23 @@ function calculateTarget(sel,angle){
   return {x:center.x+(-ny)*offset,y:center.y+(nx)*offset};
 }
 
+/* ================= MENU ================= */
 function showMenu(x,y,current,onSelect,visible,onToggleVisibility,note,onEditNote){
   const menu=document.createElement("div");
   menu.className="menu";
   menu.style.left=x+"px";
   menu.style.top=y+"px";
 
-  // Entwickler: Buttons
   if(isDev){
     Object.keys(selectionOptions).forEach(key=>{
       const btn=document.createElement("button");
       btn.textContent=key;
       if(key===current) btn.style.background="#ccc";
-      btn.onclick=()=>{
-        onSelect(key);
-        updateBowl();
-        menu.remove();
-      };
+      btn.onclick=()=>{onSelect(key);updateBowl();menu.remove();};
       menu.appendChild(btn);
     });
   }
 
-  // Anzeige
   const valueDisplay=document.createElement("div");
   valueDisplay.style.gridColumn="span 4";
   valueDisplay.style.textAlign="center";
@@ -139,43 +177,30 @@ function showMenu(x,y,current,onSelect,visible,onToggleVisibility,note,onEditNot
   valueDisplay.textContent=current?`${current} – ${selectionOptions[current]}`:"Keine Auswahl";
   menu.appendChild(valueDisplay);
 
-  // Sichtbarkeit
   const toggleBtn=document.createElement("button");
   toggleBtn.className="toggle-visibility";
   toggleBtn.textContent=visible?"👁 Sichtbar":"🚫 Unsichtbar";
-  toggleBtn.onclick=()=>{
-    onToggleVisibility(!visible);
-    toggleBtn.textContent=!visible?"👁 Sichtbar":"🚫 Unsichtbar";
-    updateBowl();
-  };
+  toggleBtn.onclick=()=>{onToggleVisibility(!visible);toggleBtn.textContent=!visible?"👁 Sichtbar":"🚫 Unsichtbar";updateBowl();};
   menu.appendChild(toggleBtn);
 
-  // Notiz
   const noteInput=document.createElement("input");
   noteInput.value=note||"";
   noteInput.placeholder="Notiz";
   noteInput.style.gridColumn="span 4";
   noteInput.readOnly=!isDev;
-  noteInput.onchange=()=>{
-    if(isDev){
-      onEditNote(noteInput.value);
-      updateBowl();
-    }
-  };
+  noteInput.onchange=()=>{if(isDev){onEditNote(noteInput.value);updateBowl();}};
   menu.appendChild(noteInput);
 
   document.body.appendChild(menu);
 
   setTimeout(()=>{
     document.addEventListener("click",function handler(e){
-      if(!menu.contains(e.target)){
-        menu.remove();
-        document.removeEventListener("click",handler);
-      }
+      if(!menu.contains(e.target)){menu.remove();document.removeEventListener("click",handler);}
     });
   },10);
 }
 
+/* ================= DRAW POSITIONS ================= */
 function drawPositions(){
   positionsGroup.innerHTML="";
   for(let i=0;i<positionsCount;i++){
@@ -193,16 +218,8 @@ function drawPositions(){
       const data=bowlsData[currentBowl];
       if(!data[i]) data[i]={sel:null,visible:true,note:""};
       const d=data[i];
-
-      showMenu(e.pageX,e.pageY,d.sel,
-        val=>d.sel=val,
-        d.visible,
-        vis=>d.visible=vis,
-        d.note,
-        n=>d.note=n
-      );
+      showMenu(e.pageX,e.pageY,d.sel,val=>d.sel=val,d.visible,vis=>d.visible=vis,d.note,n=>d.note=n);
     };
-
     positionsGroup.appendChild(btn);
 
     const txt=document.createElementNS("http://www.w3.org/2000/svg","text");
@@ -216,16 +233,15 @@ function drawPositions(){
   }
 }
 
+/* ================= UPDATE BOWL ================= */
 function updateBowl(){
   linesGroup.innerHTML="";
   positionsGroup.querySelectorAll(".note").forEach(n=>n.remove());
   bowlLabel.textContent=`Bahn ${currentBowl+1} / ${totalBowls}`;
   const data=bowlsData[currentBowl];
-
   for(let i in data){
     const obj=data[i];
     if(!obj.sel) continue;
-
     const angle=getAngleRad(i);
     const startX=center.x+radius*Math.cos(angle);
     const startY=center.y+radius*Math.sin(angle);
@@ -253,14 +269,24 @@ function updateBowl(){
   localStorage.setItem("minigolfSave",JSON.stringify(bowlsData));
 }
 
+/* ================= BUTTON EVENTS ================= */
 document.getElementById("prevBowl").onclick=()=>{if(currentBowl>0) currentBowl--;updateBowl();};
 document.getElementById("nextBowl").onclick=()=>{if(currentBowl<totalBowls-1) currentBowl++;updateBowl();};
-document.getElementById("saveBtn").onclick=()=>{localStorage.setItem("minigolfSave",JSON.stringify(bowlsData));alert("Gespeichert!");};
+document.getElementById("saveBtn").onclick=saveData;
 toggleView.onchange=updateBowl;
 
-loadData();
+/* ================= START ================= */
 drawPositions();
-updateBowl();
+loadData();
+
+/* ================= LIVE UPDATE ================= */
+docRef.onSnapshot((snap)=>{
+  if(snap.exists){
+    const data = snap.data().bowlsData;
+    for(let i=0;i<totalBowls;i++) bowlsData[i] = data[i] || {};
+    updateBowl();
+  }
+});
 </script>
 
 </body>
