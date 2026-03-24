@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>Minigolf-App – Entwicklerkontrolle</title>
+<title>BGSC "Gut Schlag" Gladbeck – Endkreis-App</title>
 
 <!-- Firebase Scripts -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -17,7 +17,40 @@ button { margin:5px; cursor:pointer; }
 .toggle-visibility { grid-column: span 4; }
 #devBanner { margin:10px; font-weight:bold; color:white; background:#444; padding:5px 10px; border-radius:5px; display:none; }
 #bowlLabel { display:inline-block; transition: color 0.2s; }
+/* kleiner runder Button wie die Pfeile, kleinere Schrift, weniger Schatten */
+.small-nav-btn {
+  min-width: 80px;      /* Button-Breite */
+  height: 45px;         /* Höhe */
+  font-size: 14px;      /* kleinere Schrift */
+  font-weight: bold;    /* Schrift dick */
+  border-radius: 50px;  /* stark abgerundet, rund/oval */
+  background: linear-gradient(145deg, #f0f0f0, #cacaca);
+  box-shadow: 3px 3px 6px rgba(0,0,0,0.2), -2px -2px 5px rgba(255,255,255,0.7); /* weniger Schatten */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;             /* Abstand Symbol/Text */
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0 10px;      /* horizontaler Abstand */
+  border: none;         /* keine sichtbare Umrandung */
+}
 
+.small-nav-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 4px 4px 8px rgba(0,0,0,0.25), -3px -3px 6px rgba(255,255,255,0.9); /* leichter Hover-Schatten */
+}
+
+.small-nav-btn:active {
+  transform: scale(0.95);
+  box-shadow: inset 2px 2px 4px rgba(0,0,0,0.2), inset -2px -2px 4px rgba(255,255,255,0.7); /* leichter Inner-Shadow */
+}
+
+.small-nav-btn span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px; /* Abstand Symbol/Text */
+}
 /* ================= NEUES NAV DESIGN ================= */
 .bowl-nav {
   display: flex;
@@ -58,7 +91,7 @@ button { margin:5px; cursor:pointer; }
 </head>
 <body>
 
-<h2>Minigolf-App – Entwicklerkontrolle</h2>
+<h2>BGSC "Gut Schlag" Gladbeck – Endkreis-App</h2>
 <div id="devBanner">🛠 Entwicklermodus aktiv</div>
 
 <!-- NEUE NAVIGATION -->
@@ -69,7 +102,7 @@ button { margin:5px; cursor:pointer; }
 </div>
 
 <div>
-  <button id="saveBtn">💾 Speichern</button>
+  <button id="saveBtn" class="small-nav-btn"><span>💾 Speichern</span></button>
 </div>
 
 <label>
