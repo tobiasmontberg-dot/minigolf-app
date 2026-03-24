@@ -87,7 +87,42 @@ button { margin:5px; cursor:pointer; }
 
 .nav-btn span { display: inline-block; transform: translateY(-1px); }
 #bowlLabel { font-size: 18px; font-weight: bold; min-width: 140px; text-align: center; }
-</style>
+/* ================= SAVE BUTTON POP + CHECK ================= */
+/* Animation für Pop + Farbwechsel */
+@keyframes savePop {
+  0%   { transform: scale(1); background: linear-gradient(145deg, #f0f0f0, #cacaca); color: black; }
+  30%  { transform: scale(1.3); background-color: #009900; color: white; }
+  60%  { transform: scale(1.1); background-color: #009900; color: white; }
+  100% { transform: scale(1); background: linear-gradient(145deg, #f0f0f0, #cacaca); color: black; }
+}
+
+.save-pop {
+  animation: savePop 0.6s ease-out forwards;
+}
+
+/* Checkmark-Bubble */
+.checkmark {
+  position: absolute;
+  font-size: 18px;
+  color: white;
+  background-color: #009900; /* RAL 6038 */
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0);
+  z-index: 1000;
+  transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+}
+
+.checkmark.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1.2);
+}</style>
 </head>
 <body>
 
@@ -509,8 +544,40 @@ document.getElementById("nextBowl").onclick = () => {
     updateBowl();
   }
 };
-document.getElementById("saveBtn").onclick=saveData;
-toggleView.onchange=updateBowl;
+// ================= SAVE BUTTON POP + CHECK =================
+document.getElementById("saveBtn").onclick = async (e) => {
+  await saveData(); // speichert die Daten
+
+  const btn = document.getElementById("saveBtn");
+
+  // Pop-Animation Button
+  btn.classList.remove("save-pop");   // reset, falls Animation noch läuft
+  void btn.offsetWidth;               // reflow triggern
+  btn.classList.add("save-pop");
+
+  // Checkmark erstellen oder wiederverwenden
+  let check = document.getElementById("saveCheckmark");
+  if(!check){
+    check = document.createElement("div");
+    check.id = "saveCheckmark";
+    check.className = "checkmark";
+    check.textContent = "✔️";
+    document.body.appendChild(check);
+  }
+
+  // Position über dem Button
+  const rect = btn.getBoundingClientRect();
+  check.style.left = `${rect.left + rect.width/2}px`;
+  check.style.top = `${rect.top - 20}px`;
+
+  // Einblenden
+  check.classList.add("show");
+
+  // Nach 0,8s wieder ausblenden
+  setTimeout(() => { check.classList.remove("show"); }, 800);
+};
+
+toggleView.onchange = updateBowl;
 
 // ================= START =================
 drawPositions();
