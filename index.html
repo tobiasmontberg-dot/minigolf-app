@@ -544,7 +544,7 @@ document.getElementById("nextBowl").onclick = () => {
     updateBowl();
   }
 };
-// ================= SAVE BUTTON POP + CHECK =================
+// ================= SAVE BUTTON POP + CHECK + VIBRATION =================
 document.getElementById("saveBtn").onclick = async (e) => {
   await saveData(); // speichert die Daten
 
@@ -575,6 +575,11 @@ document.getElementById("saveBtn").onclick = async (e) => {
 
   // Nach 0,8s wieder ausblenden
   setTimeout(() => { check.classList.remove("show"); }, 800);
+
+  // Vibration (wenn unterstützt)
+  if (navigator.vibrate) {
+    navigator.vibrate(100); // 100ms kurze Vibration
+  }
 };
 
 toggleView.onchange = updateBowl;
