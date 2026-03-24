@@ -17,6 +17,43 @@ button { margin:5px; cursor:pointer; }
 .toggle-visibility { grid-column: span 4; }
 #devBanner { margin:10px; font-weight:bold; color:white; background:#444; padding:5px 10px; border-radius:5px; display:none; }
 #bowlLabel { display:inline-block; transition: color 0.2s; }
+
+/* ================= NEUES NAV DESIGN ================= */
+.bowl-nav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin: 15px 0;
+}
+
+.nav-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: none;
+  font-size: 26px;
+  font-weight: bold;
+  cursor: pointer;
+  background: linear-gradient(145deg, #f0f0f0, #cacaca);
+  box-shadow: 6px 6px 12px rgba(0,0,0,0.2), -4px -4px 10px rgba(255,255,255,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.nav-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 8px 8px 16px rgba(0,0,0,0.25), -4px -4px 10px rgba(255,255,255,0.9);
+}
+
+.nav-btn:active {
+  transform: scale(0.95);
+  box-shadow: inset 4px 4px 8px rgba(0,0,0,0.2), inset -4px -4px 8px rgba(255,255,255,0.7);
+}
+
+.nav-btn span { display: inline-block; transform: translateY(-1px); }
+#bowlLabel { font-size: 18px; font-weight: bold; min-width: 140px; text-align: center; }
 </style>
 </head>
 <body>
@@ -24,10 +61,11 @@ button { margin:5px; cursor:pointer; }
 <h2>Minigolf-App – Entwicklerkontrolle</h2>
 <div id="devBanner">🛠 Entwicklermodus aktiv</div>
 
-<div>
-  <button id="prevBowl">‹</button>
+<!-- NEUE NAVIGATION -->
+<div class="bowl-nav">
+  <button id="prevBowl" class="nav-btn"><span>←</span></button>
   <span id="bowlLabel">Bahn 1 / 18</span>
-  <button id="nextBowl">›</button>
+  <button id="nextBowl" class="nav-btn"><span>→</span></button>
 </div>
 
 <div>
@@ -376,7 +414,7 @@ function updateBowl(){
     const line=document.createElementNS("http://www.w3.org/2000/svg","line");
     line.setAttribute("x1",startX); line.setAttribute("y1",startY);
     line.setAttribute("x2",target.x); line.setAttribute("y2",target.y);
-    line.setAttribute("stroke","rgba(255,255,255,0.8)"); // ✅ weiß statt rot
+    line.setAttribute("stroke","rgba(255,255,255,0.8)");
     line.setAttribute("stroke-width","1.5");
     line.style.display = (isVisible(currentBowl,i) && toggleView.checked) ? "block" : "none";
     linesGroup.appendChild(line);
