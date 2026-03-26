@@ -71,6 +71,57 @@ button { margin:5px; cursor:pointer; }
 .custom-select select:active { transform: scale(0.97); box-shadow: inset 3px 3px 6px rgba(0,0,0,0.2), inset -3px -3px 6px rgba(255,255,255,0.7); }
 .custom-select select:focus { outline: none; box-shadow: 0 0 0 2px #FFA500; }
 .custom-select::after { content: "▼"; position: absolute; right: 18px; top: 50%; transform: translateY(-50%); pointer-events: none; font-size: 12px; color: #333; }
+/* ================= BILD BUTTONS ================= */
+/* Kleiner grüner Button für Bild speichern */
+.green-btn {
+  background: linear-gradient(145deg, #28a745, #1e7e34);
+  color: white;
+  font-size: 0.85em;
+  font-weight: bold;
+  padding: 0 8px;      /* weniger horizontaler Abstand */
+  height: 30px;        /* kleinere Höhe */
+  border: none;
+  border-radius: 50px;
+  box-shadow: 3px 3px 6px rgba(0,0,0,0.2), -2px -2px 5px rgba(255,255,255,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.green-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 4px 4px 8px rgba(0,0,0,0.25), -3px -3px 6px rgba(255,255,255,0.9);
+}
+
+.red-btn {
+  background: linear-gradient(145deg, #dc3545, #b02a37);
+  color: white;
+  font-size: 0.85em;
+  font-weight: bold;
+  padding: 0 8px;      /* weniger horizontaler Abstand */
+  height: 30px;        /* kleinere Höhe */
+  border: none;
+  border-radius: 50px;
+  box-shadow: 3px 3px 6px rgba(0,0,0,0.2), -2px -2px 5px rgba(255,255,255,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.red-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 4px 4px 8px rgba(0,0,0,0.25), -3px -3px 6px rgba(255,255,255,0.9);
+}
+
+/* Checkbox Linien anzeigen passend zum Label Anlage wählen */
+.facility-label {
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+  cursor: pointer;
+}
 
 </style>
 </head>
@@ -97,11 +148,30 @@ button { margin:5px; cursor:pointer; }
   <button id="nextBowl" class="nav-btn"><span>→</span></button>
 </div>
 
+<!-- Normale Speicherung für Bowl-Daten -->
 <div>
   <button id="saveBtn" class="small-nav-btn"><span>💾 Speichern</span></button>
 </div>
 
-<label>
+<!-- Bild Upload + kleine Buttons nebeneinander -->
+<div style="display:flex; align-items:center; gap:12px; margin-top:10px;">
+  <!-- Datei auswählen -->
+  <input type="file" id="imageUpload" accept="image/*" style="cursor:pointer; flex-shrink:0;">
+
+  <!-- Kleine Buttons rechts neben Datei-Input -->
+  <div style="display:flex; align-items:center; gap:6px;">
+    <button id="saveImageBtn" class="small-nav-btn green-btn">📸 Bild speichern</button>
+    <button id="deleteImageBtn" class="small-nav-btn red-btn">🗑️ Bild löschen</button>
+  </div>
+</div>
+
+<!-- Bildvorschau darunter -->
+<div style="margin-top:10px; text-align:center;">
+  <img id="previewImage" style="max-width:200px; border-radius:10px; display:none;">
+</div>
+
+<!-- Checkbox Linien anzeigen -->
+<label class="facility-label">
   <input type="checkbox" id="toggleView" checked>
   Linien anzeigen
 </label>
@@ -218,9 +288,20 @@ function getAngleRad(i){return(i*30-90)*Math.PI/180;}
 async function loadData() {
   try {
     const snap = await docRef.get();
-    if(snap.exists) {
+    if (snap.exists) {
       const data = snap.data().allFacilities;
-      allFacilities = data || allFacilities;
+
+      // Firestore-Daten existieren → alle Anlagen aktualisieren
+      if (data) allFacilities = data;
+
+      // Prüfen, ob currentFacility noch existiert
+      if (!allFacilities[currentFacility]) {
+        // Wenn nicht → erste Anlage aus Firestore nehmen
+        currentFacility = Object.keys(allFacilities)[0];
+        facilitySelect.value = currentFacility; // Auswahl im Dropdown synchronisieren
+      }
+
+      // Aktuelle Anlage laden
       bowlsData = allFacilities[currentFacility];
       updateBowl();
       return;
@@ -228,9 +309,12 @@ async function loadData() {
   } catch (e) {
     console.log("Firebase Fehler, nutze LocalStorage", e);
   }
+
+  // Fallback: LocalStorage oder initiale allFacilities
   const saved = localStorage.getItem("minigolfSave_" + currentFacility);
   if (saved) bowlsData = JSON.parse(saved);
   else bowlsData = allFacilities[currentFacility];
+
   updateBowl();
 }
 
@@ -483,7 +567,10 @@ function updateBowl(){
     }
   }
 
-  localStorage.setItem("minigolfSave",JSON.stringify(bowlsData));
+  localStorage.setItem("minigolfSave_" + currentFacility, JSON.stringify(bowlsData));
+
+// 👉 Bild zur aktuellen Bahn laden
+loadImage();
 }
 
 // ================= BAHNWECHSEL-ANIMATION =================
@@ -573,16 +660,159 @@ document.getElementById("saveBtn").onclick = async (e) => {
 
 toggleView.onchange = updateBowl;
 
+// ================= USER-ID =================
+let userId = localStorage.getItem("mgUserId");
+if(!userId){
+  userId = crypto.randomUUID();
+  localStorage.setItem("mgUserId", userId);
+}
+
+// ================= INDEXEDDB =================
+let imageDB;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("minigolfImages", 1);
+
+    request.onupgradeneeded = e => {
+      imageDB = e.target.result;
+      if (!imageDB.objectStoreNames.contains("images")) {
+        imageDB.createObjectStore("images", { keyPath: "id" });
+      }
+    };
+
+    request.onsuccess = e => {
+      imageDB = e.target.result;
+      resolve(imageDB);
+    };
+
+    request.onerror = e => reject(e);
+  });
+}
+
+// ================= HILFSFUNKTIONEN =================
+function getKey(facility, bowl) {
+  return `${facility}_${bowl}_${userId}`;
+}
+
+async function saveImageToDB(facility, bowl, dataURL) {
+  await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = imageDB.transaction("images", "readwrite");
+    const store = tx.objectStore("images");
+
+    store.put({ id: getKey(facility,bowl), data: dataURL });
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = e => reject(e);
+  });
+}
+
+async function loadImageFromDB(facility, bowl) {
+  await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = imageDB.transaction("images", "readonly");
+    const store = tx.objectStore("images");
+
+    const request = store.get(getKey(facility,bowl));
+
+    request.onsuccess = () => resolve(request.result?.data);
+    request.onerror = e => reject(e);
+  });
+}
+
+async function deleteImageFromDB(facility, bowl) {
+  await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = imageDB.transaction("images", "readwrite");
+    const store = tx.objectStore("images");
+
+    store.delete(getKey(facility,bowl));
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = e => reject(e);
+  });
+}
+
+// ================= DOM =================
+const imageUpload = document.getElementById("imageUpload");
+const previewImage = document.getElementById("previewImage");
+const saveImageBtn = document.getElementById("saveImageBtn");
+const deleteImageBtn = document.getElementById("deleteImageBtn");
+
+// ================= BILD LADEN =================
+async function loadImage() {
+  const data = await loadImageFromDB(currentFacility, currentBowl);
+
+  if(data){
+    previewImage.src = data;
+    previewImage.style.display = "block";
+    deleteImageBtn.style.display = "inline-flex";
+  } else {
+    previewImage.src = "";
+    previewImage.style.display = "none";
+    deleteImageBtn.style.display = "none";
+  }
+}
+
+// ================= BILD SPEICHERN =================
+saveImageBtn.onclick = async () => {
+  const file = imageUpload.files[0];
+
+  if(!file){
+    alert("Bitte zuerst eine Datei auswählen!");
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = async e => {
+    const dataURL = e.target.result;
+
+    await saveImageToDB(currentFacility, currentBowl, dataURL);
+
+    previewImage.src = dataURL;
+    previewImage.style.display = "block";
+    deleteImageBtn.style.display = "inline-flex";
+  };
+
+  reader.readAsDataURL(file);
+};
+
+// ================= BILD LÖSCHEN =================
+deleteImageBtn.onclick = async () => {
+  await deleteImageFromDB(currentFacility, currentBowl);
+
+  previewImage.src = "";
+  previewImage.style.display = "none";
+  deleteImageBtn.style.display = "none";
+  imageUpload.value = "";
+};
+
+// Bild automatisch beim Wechsel der Bahn laden
+toggleView.onchange = updateBowl; // bleibt wie gehabt
 // ================= START =================
 drawPositions();
 loadData();
 
 // ================= LIVE UPDATE =================
-docRef.onSnapshot((snap)=>{
-  if(snap.exists){
-    const data = snap.data().bowlsData;
-    for(let i=0;i<totalBowls;i++) bowlsData[i] = data[i] || {};
-    updateBowl();
+docRef.onSnapshot((snap) => {
+  if (snap.exists) {
+    const data = snap.data().allFacilities; // Alle Anlagen aus Firestore holen
+
+    if (data) {
+      allFacilities = data; // Alle Anlagen updaten
+
+      // Prüfen, ob die gewählte Anlage noch existiert
+      if (!allFacilities[currentFacility]) {
+        // Wenn die gewählte Anlage nicht mehr existiert, auf die erste Anlage umschalten
+        currentFacility = Object.keys(allFacilities)[0];
+        facilitySelect.value = currentFacility; // Dropdown synchronisieren
+      }
+
+      bowlsData = allFacilities[currentFacility]; // Aktuelle Anlage laden
+      updateBowl(); // SVG + Linien + Bilder aktualisieren
+    }
   }
 });
 </script>
