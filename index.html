@@ -141,6 +141,20 @@ button { margin:5px; cursor:pointer; }
   </div>
 </div>
 
+<div style="display:flex; flex-direction:column; align-items:center; gap:8px; margin-bottom:10px;">
+  <button id="uploadPlanBtn" class="small-nav-btn green-btn">
+    📄 Pistenplan hinzufügen
+  </button>
+
+  <button id="deletePlanBtn" class="small-nav-btn red-btn">
+    🗑️ Pistenplan löschen
+  </button>
+
+  <input type="file" id="planUpload" accept="image/*" style="display:none;">
+
+  <img id="planPreview" style="max-width:250px; border-radius:10px; display:none;">
+</div>
+
 <!-- NEUE NAVIGATION -->
 <div class="bowl-nav">
   <button id="prevBowl" class="nav-btn"><span>←</span></button>
@@ -263,12 +277,12 @@ const positionsGroup=document.getElementById("positions");
 const bowlLabel=document.getElementById("bowlLabel");
 const facilitySelect = document.getElementById("facilitySelect");
 facilitySelect.value = currentFacility;
-facilitySelect.onchange = () => {
-  currentFacility = facilitySelect.value;
-  currentBowl = 0;
-  bowlsData = allFacilities[currentFacility];
-  updateBowl();
-}
+facilitySelect.onchange = async (e) => {
+  currentFacility = e.target.value;
+  await loadPlan();
+  await loadImage();
+  updateBowl(); // Linien + Positionen korrekt setzen
+};
 const bowlNumberGroup=document.getElementById("bowlNumber");
 const toggleView=document.getElementById("toggleView");
 
@@ -347,6 +361,33 @@ function calculateTarget(sel,angle){
   return {x:center.x+(-ny)*offset,y:center.y+(nx)*offset};
 }
 
+// --- Key für Pistenplan pro Anlage/User ---
+function getPlanKey(facility) {
+  return `plan_${facility}_${userId}`;
+}
+
+// --- IndexedDB Funktionen für Pistenplan ---
+async function savePlanToDB(facility, dataURL) {
+  await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = imageDB.transaction("images", "readwrite");
+    const store = tx.objectStore("images");
+    store.put({ id: getPlanKey(facility), data: dataURL });
+    tx.oncomplete = () => resolve();
+    tx.onerror = e => reject(e);
+  });
+}
+
+async function loadPlanFromDB(facility) {
+  await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = imageDB.transaction("images", "readonly");
+    const store = tx.objectStore("images");
+    const request = store.get(getPlanKey(facility));
+    request.onsuccess = () => resolve(request.result?.data);
+    request.onerror = e => reject(e);
+  });
+}
 
 // ================= MENU =================
 function showMenu(x,y,current,onSelect,posIndex,note,onEditNote){
@@ -690,6 +731,63 @@ function openDB() {
   });
 }
 
+// --- Key für Pistenplan pro Anlage/User ---
+function getPlanKey(facility) {
+  return `plan_${facility}_${userId}`;
+}
+
+// --- IndexedDB Funktionen für Pistenplan ---
+async function savePlanToDB(facility, dataURL) {
+  await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = imageDB.transaction("images", "readwrite");
+    const store = tx.objectStore("images");
+    store.put({ id: getPlanKey(facility), data: dataURL });
+    tx.oncomplete = () => resolve();
+    tx.onerror = e => reject(e);
+  });
+}
+
+async function loadPlanFromDB(facility) {
+  await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = imageDB.transaction("images", "readonly");
+    const store = tx.objectStore("images");
+    const request = store.get(getPlanKey(facility));
+    request.onsuccess = () => resolve(request.result?.data);
+    request.onerror = e => reject(e);
+  });
+}
+
+async function deletePlanFromDB(facility) {
+  await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = imageDB.transaction("images", "readwrite");
+    const store = tx.objectStore("images");
+
+    store.delete(getPlanKey(facility));
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = e => reject(e);
+  });
+}
+
+const deletePlanBtn = document.getElementById("deletePlanBtn");
+
+deletePlanBtn.onclick = async () => {
+  try {
+    await deletePlanFromDB(currentFacility);
+
+    planPreview.src = "";
+    planPreview.style.display = "none";
+
+    alert("Pistenplan gelöscht 🗑️");
+  } catch (err) {
+    console.error(err);
+    alert("Fehler beim Löschen!");
+  }
+};
+
 // ================= HILFSFUNKTIONEN =================
 function getKey(facility, bowl) {
   return `${facility}_${bowl}_${userId}`;
@@ -740,44 +838,122 @@ const previewImage = document.getElementById("previewImage");
 const saveImageBtn = document.getElementById("saveImageBtn");
 const deleteImageBtn = document.getElementById("deleteImageBtn");
 
-// ================= BILD LADEN =================
-async function loadImage() {
-  const data = await loadImageFromDB(currentFacility, currentBowl);
+const uploadPlanBtn = document.getElementById("uploadPlanBtn");
+const planUpload = document.getElementById("planUpload");
+const planPreview = document.getElementById("planPreview");
 
-  if(data){
-    previewImage.src = data;
+// Bilder initial ausblenden
+previewImage.style.display = "none";
+planPreview.style.display = "none";
+
+// --- PISTENPLAN UPLOAD ---
+uploadPlanBtn.onclick = () => planUpload.click();
+
+planUpload.onchange = async () => {
+  const file = planUpload.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    planPreview.src = e.target.result;
+    planPreview.style.display = "block";
+
+    try {
+      await savePlanToDB(currentFacility, planPreview.src);
+      console.log("Pistenplan gespeichert!");
+    } catch (err) {
+      console.error("Fehler beim Speichern des Pistenplans:", err);
+    }
+  };
+  reader.readAsDataURL(file);
+};
+
+// --- BAHN-BILD UPLOAD ---
+imageUpload.onchange = async () => {
+  const file = imageUpload.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    previewImage.src = e.target.result;
     previewImage.style.display = "block";
-    deleteImageBtn.style.display = "inline-flex";
-  } else {
+
+    try {
+      await saveImageToDB(currentFacility, currentBowl, previewImage.src);
+      console.log("Bahn-Bild gespeichert!");
+    } catch (err) {
+      console.error("Fehler beim Speichern des Bahn-Bildes:", err);
+    }
+  };
+  reader.readAsDataURL(file);
+};
+
+// --- BAHN-BILD SPEICHERN BUTTON ---
+saveImageBtn.onclick = async () => {
+  if (!previewImage.src) return;
+  try {
+    await saveImageToDB(currentFacility, currentBowl, previewImage.src);
+    alert("Bild gespeichert ✅");
+  } catch (err) {
+    console.error(err);
+    alert("Fehler beim Speichern!");
+  }
+};
+
+// --- BAHN-BILD LÖSCHEN BUTTON ---
+deleteImageBtn.onclick = async () => {
+  try {
+    await deleteImageFromDB(currentFacility, currentBowl);
     previewImage.src = "";
     previewImage.style.display = "none";
-    deleteImageBtn.style.display = "none";
+    alert("Bild gelöscht 🗑️");
+  } catch (err) {
+    console.error(err);
+    alert("Fehler beim Löschen!");
+  }
+};
+
+// --- BILD LADEN ZUR AKTUELLEN BAHN ---
+async function loadImage() {
+  try {
+    const data = await loadImageFromDB(currentFacility, currentBowl);
+    previewImage.src = data || "";
+    previewImage.style.display = data ? "block" : "none";
+
+    const planData = await loadPlanFromDB(currentFacility);
+    planPreview.src = planData || "";
+    planPreview.style.display = planData ? "block" : "none";
+  } catch (err) {
+    console.error("Fehler beim Laden der Bilder:", err);
   }
 }
 
-// ================= BILD SPEICHERN =================
-saveImageBtn.onclick = async () => {
-  const file = imageUpload.files[0];
+// Initiales Laden
+loadData().then(() => {
+  drawPositions();   // wichtig zuerst!
+  updateBowl();      // dann aktuelle Bahn setzen
+  loadImage();       // erst danach Bilder laden
+});
 
-  if(!file){
-    alert("Bitte zuerst eine Datei auswählen!");
-    return;
+async function loadPlan() {
+  const data = await loadPlanFromDB(currentFacility);
+
+  if(data){
+    planPreview.src = data;
+    planPreview.style.display = "block";
+  } else {
+    planPreview.src = "";
+    planPreview.style.display = "none";
   }
+}
 
-  const reader = new FileReader();
+// --- Beim Start direkt laden ---
+window.addEventListener("DOMContentLoaded", async () => {
+  currentFacility = facilitySelect.value;
+  await loadPlan();
+});
 
-  reader.onload = async e => {
-    const dataURL = e.target.result;
 
-    await saveImageToDB(currentFacility, currentBowl, dataURL);
-
-    previewImage.src = dataURL;
-    previewImage.style.display = "block";
-    deleteImageBtn.style.display = "inline-flex";
-  };
-
-  reader.readAsDataURL(file);
-};
 
 // ================= BILD LÖSCHEN =================
 deleteImageBtn.onclick = async () => {
@@ -797,23 +973,19 @@ loadData();
 
 // ================= LIVE UPDATE =================
 docRef.onSnapshot((snap) => {
-  if (snap.exists) {
-    const data = snap.data().allFacilities; // Alle Anlagen aus Firestore holen
+  if (!snap.exists) return;
+  const data = snap.data().allFacilities;
+  if (!data) return;
 
-    if (data) {
-      allFacilities = data; // Alle Anlagen updaten
-
-      // Prüfen, ob die gewählte Anlage noch existiert
-      if (!allFacilities[currentFacility]) {
-        // Wenn die gewählte Anlage nicht mehr existiert, auf die erste Anlage umschalten
-        currentFacility = Object.keys(allFacilities)[0];
-        facilitySelect.value = currentFacility; // Dropdown synchronisieren
-      }
-
-      bowlsData = allFacilities[currentFacility]; // Aktuelle Anlage laden
-      updateBowl(); // SVG + Linien + Bilder aktualisieren
-    }
+  allFacilities = data;
+  if (!allFacilities[currentFacility]) {
+    currentFacility = Object.keys(allFacilities)[0];
+    facilitySelect.value = currentFacility;
   }
+
+  bowlsData = allFacilities[currentFacility];
+  updateBowl(); // Linien + Positionen aktualisieren
+  loadImage();  // aktuelle Bilder + Pistenplan laden
 });
 </script>
 
