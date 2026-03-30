@@ -141,6 +141,29 @@ button { margin:5px; cursor:pointer; }
   </div>
 </div>
 
+<div class="facility-wrapper" style="margin-top: 5px; margin-bottom: 20px;">
+  <input type="file" id="pistenplanUpload" accept="image/*" style="display: none;">
+  
+  <button id="pistenplanBtn" class="small-nav-btn" style="min-width: 160px; height: 35px; font-size: 12px; background: linear-gradient(145deg, #e0e0e0, #c5c5c5); border: 1px solid #bbb;">
+    🗺️ Pistenplan hinzufügen
+  </button>
+  
+  <div id="pistenplanContainer" style="margin-top: 15px; display: none; position: relative; width: 100%; max-width: 320px;">
+    <p style="font-size: 10px; color: #777; margin-bottom: 5px;">Zum Vergrößern auf den Pistenplan tippen</p>
+    <img id="pistenplanImage" style="width: 100%; border: 1px solid #444; border-radius: 8px; cursor: zoom-in; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
+    
+    <button id="deletePistenplan" style="position: absolute; top: 18px; right: -10px; background: #dc3545; color: white; border: 2px solid white; border-radius: 50%; width: 26px; height: 26px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">×</button>
+  </div>
+</div>
+
+<div id="imageModal" style="display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.9); align-items:center; justify-content:center; cursor:zoom-out;">
+  <img id="modalImg" style="max-width:98%; max-height:98%; border-radius:4px;">
+</div>
+
+<div id="imageModal" style="display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.9); align-items:center; justify-content:center; cursor:zoom-out;">
+  <img id="modalImg" style="max-width:95%; max-height:95%; border-radius:5px;">
+</div>
+
 <!-- NEUE NAVIGATION -->
 <div class="bowl-nav">
   <button id="prevBowl" class="nav-btn"><span>←</span></button>
@@ -167,7 +190,7 @@ button { margin:5px; cursor:pointer; }
 
 <!-- Bildvorschau darunter -->
 <div style="margin-top:10px; text-align:center;">
-  <img id="previewImage" style="max-width:200px; border-radius:10px; display:none;">
+  <img id="previewImage" style="max-width:200px; border-radius:10px; display:none; cursor:zoom-in;">
 </div>
 
 <!-- Checkbox Linien anzeigen -->
@@ -739,6 +762,84 @@ const imageUpload = document.getElementById("imageUpload");
 const previewImage = document.getElementById("previewImage");
 const saveImageBtn = document.getElementById("saveImageBtn");
 const deleteImageBtn = document.getElementById("deleteImageBtn");
+/// ================= PISTENPLAN & ZOOM LOGIK (Zusammengefasst) =================
+
+const pistenplanUpload = document.getElementById("pistenplanUpload");
+const pistenplanBtn = document.getElementById("pistenplanBtn");
+const pistenplanContainer = document.getElementById("pistenplanContainer");
+const pistenplanImage = document.getElementById("pistenplanImage");
+const deletePistenplan = document.getElementById("deletePistenplan");
+const imageModal = document.getElementById("imageModal");
+const modalImg = document.getElementById("modalImg");
+const previewImgElem = document.getElementById("previewImage");
+
+// 1. Funktion: Pistenplan laden
+async function loadPistenplan() {
+  const data = await loadImageFromDB("PLAN", currentFacility); 
+  if (data) {
+    pistenplanImage.src = data;
+    pistenplanContainer.style.display = "block";
+    pistenplanBtn.textContent = "🗺️ Pistenplan ändern";
+  } else {
+    pistenplanContainer.style.display = "none";
+    pistenplanBtn.textContent = "🗺️ Pistenplan hinzufügen";
+  }
+}
+
+// 2. Upload & Löschen
+pistenplanBtn.onclick = () => pistenplanUpload.click();
+pistenplanUpload.onchange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    await saveImageToDB("PLAN", currentFacility, ev.target.result);
+    loadPistenplan();
+    
+    // FIX: Input zurücksetzen, damit dieselbe Datei erneut gewählt werden kann
+    e.target.value = ""; 
+  };
+  reader.readAsDataURL(file);
+};
+
+deletePistenplan.onclick = (e) => {
+  e.stopPropagation();
+  if(confirm("Pistenplan für diese Anlage lokal löschen?")) {
+    deleteImageFromDB("PLAN", currentFacility).then(() => loadPistenplan());
+  }
+};
+
+// 3. ZOOM-FUNKTION (Für Pistenplan UND Bahnbilder)
+const openModal = (src) => {
+  if (src && src !== "") {
+    modalImg.src = src;
+    imageModal.style.display = "flex";
+  }
+};
+
+pistenplanImage.onclick = () => openModal(pistenplanImage.src);
+previewImgElem.onclick = () => openModal(previewImgElem.src);
+imageModal.onclick = () => { imageModal.style.display = "none"; };
+
+// Styling
+previewImgElem.style.cursor = "zoom-in";
+
+// 4. DER FIX: Anlagenwechsel reparieren
+// Wir hängen uns an das bestehende onchange Ereignis an, ohne es zu zerstören
+facilitySelect.addEventListener('change', () => {
+  currentFacility = facilitySelect.value;
+  currentBowl = 0;
+  bowlsData = allFacilities[currentFacility] || Array.from({length: totalBowls}, () => ({}));
+  
+  updateBowl();     // Zeichnet die Linien und Positionen neu
+  loadPistenplan(); // Lädt den passenden Pistenplan
+});
+
+// 5. INITIALISIERUNG BEIM START
+drawPositions();
+loadData();
+loadPistenplan();
+
 
 // ================= BILD LADEN =================
 async function loadImage() {
@@ -767,14 +868,16 @@ saveImageBtn.onclick = async () => {
   const reader = new FileReader();
 
   reader.onload = async e => {
-    const dataURL = e.target.result;
+  const dataURL = e.target.result;
+  await saveImageToDB(currentFacility, currentBowl, dataURL);
 
-    await saveImageToDB(currentFacility, currentBowl, dataURL);
+  previewImage.src = dataURL;
+  previewImage.style.display = "block";
+  deleteImageBtn.style.display = "inline-flex";
 
-    previewImage.src = dataURL;
-    previewImage.style.display = "block";
-    deleteImageBtn.style.display = "inline-flex";
-  };
+  // FIX: Auch hier das Auswahlfeld leeren
+  document.getElementById("imageUpload").value = "";
+};
 
   reader.readAsDataURL(file);
 };
