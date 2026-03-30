@@ -136,7 +136,10 @@ button { margin:5px; cursor:pointer; }
   <div class="custom-select">
     <select id="facilitySelect">
       <option value="1. MGC Gelsenkirchen">1. MGC Gelsenkirchen</option>
+      <option value="BGSV Kerpen">BGSV Kerpen</option>
       <option value="VfM Bottrop">VfM Bottrop</option>
+      <option value="BGSC Gut Schlag Gladbeck">BGSC "Gut Schlag" Gladbeck</option>
+      <option value="MGC Dormagen-Brechten">MGC Dormagen-Brechten</option>
     </select>
   </div>
 </div>
@@ -274,7 +277,10 @@ const selectionOptions={
 
 let allFacilities = {
   "1. MGC Gelsenkirchen": Array.from({length: totalBowls}, () => ({})),
-  "VfM Bottrop": Array.from({length: totalBowls}, () => ({}))
+  "BGSV Kerpen": Array.from({length: totalBowls}, () => ({})),
+  "VfM Bottrop": Array.from({length: totalBowls}, () => ({})),
+  "BGSC Gut Schlag Gladbeck": Array.from({length: totalBowls}, () => ({})),
+  "MGC Dormagen-Brechten": Array.from({length: totalBowls}, () => ({}))
 };
 
 let currentFacility = "1. MGC Gelsenkirchen";
@@ -560,6 +566,20 @@ function updateBowlNumber(){
 
 // ================= UPDATE BOWL =================
 function updateBowl(){
+  // --- NEU: Logik zum Ausblenden des Endkreises ---
+  const anlagenOhneEndkreis = ["BGSV Kerpen", "BGSC Gut Schlag Gladbeck", "MGC Dormagen-Brechten"];
+  const svgGraphik = document.querySelector("svg");
+  const linienCheckbox = document.querySelector(".facility-label");
+
+  if (anlagenOhneEndkreis.includes(currentFacility)) {
+    if (svgGraphik) svgGraphik.style.display = "none";
+    if (linienCheckbox) linienCheckbox.style.display = "none";
+  } else {
+    if (svgGraphik) svgGraphik.style.display = "block";
+    if (linienCheckbox) linienCheckbox.style.display = "block";
+  }
+  // --- Ende der neuen Logik ---
+
   linesGroup.innerHTML="";
   positionsGroup.querySelectorAll(".bubble").forEach(n=>n.remove());
   bowlLabel.textContent=`Bahn ${currentBowl+1} / ${totalBowls}`;
@@ -592,8 +612,8 @@ function updateBowl(){
 
   localStorage.setItem("minigolfSave_" + currentFacility, JSON.stringify(bowlsData));
 
-// 👉 Bild zur aktuellen Bahn laden
-loadImage();
+  // 👉 Bild zur aktuellen Bahn laden
+  loadImage();
 }
 
 // ================= BAHNWECHSEL-ANIMATION =================
